@@ -16,8 +16,6 @@ HTTP Request (Schema)				Schema (JSON)			Create GraphQL AST
 
 												GRPC / OData / ????
 
-
-
 ------
 
 Querying 
@@ -46,3 +44,32 @@ Optimisations (Data structuries & Querying)
 
 -> Full text Search (ArangoSearch)
 -> Graphing
+
+
+------
+
+Structure / Data type (Object)
+
+User / Service 
+	-> Properties
+
+
+
+{
+	"firstName": {
+		"type": "string",
+		"minLength": 2,
+		"maxLength": 30
+	},
+	"lastName": {
+		"type": "string",
+		"minLength": 2,
+		"maxLength": 30
+	},
+	"role": {
+		"enum": [
+			"lead",
+			"customer",
+		]
+	}
+}

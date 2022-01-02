@@ -8,7 +8,7 @@ use juniper::{
 
 pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
-fn schema() -> Schema
+pub fn schema() -> Schema
 {
 	Schema::new(
 		Query,

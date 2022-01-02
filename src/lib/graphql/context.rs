@@ -1,14 +1,14 @@
 #[derive(Default, Clone)]
-pub struct ContextObject
+pub struct Context
 {
 	authenticated: bool
 }
 
-impl ContextObject
+impl Context
 {
-	pub fn new() -> ContextObject
+	pub fn new() -> Context
 	{
-		ContextObject 
+		Context
 		{
 			authenticated: false
 		}
@@ -20,4 +20,4 @@ impl ContextObject
 	}
 }
 
-impl juniper::Context for ContextObject {}
+impl juniper::Context for Context {}

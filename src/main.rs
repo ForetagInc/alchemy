@@ -17,7 +17,14 @@ use actix_web::{
 use juniper_actix::{ graphql_handler, playground_handler };
 
 pub mod lib;
-use lib::graphql::{ ContextObject, Schema };
+use lib::graphql::{ Context, Schema, schema };
+
+use lib::database::Database;
+use lib::schema::types::{ 
+	SchemaDocumentProperty, 
+	SchemaDocumentPropertyArray,
+	SchemaDocumentPropertyValues 
+};
 
 async fn playground_route() -> Result<ActixResponse, ActixError>
 {
@@ -29,18 +36,61 @@ async fn graphql_route(
 	payload: ActixPayload,
 	schema: Data<Schema>
 ) -> Result<ActixResponse, ActixError> {
-	let context = ContextObject::ctx();
+	let context = Context::ctx();
 	graphql_handler(&schema, &context, req, payload).await
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()>
 {
-	println!("Starting Alchemy");
+	println!("Starting Alchemy on port 8080");
+
+	let database = Database::new().await;
+
+	database.create_collection(
+		String::from("pandeys"), 
+		vec![
+			SchemaDocumentProperty {
+				name: "firstName".to_string(),
+				properties: SchemaDocumentPropertyValues {
+					r#type: Some(String::from("string")),
+					min_length: Some(4),
+					max_length: Some(30),
+					r#enum: None,
+					items: None
+				}
+			},
+			SchemaDocumentProperty {
+				name: "lastName".to_string(),
+				properties: SchemaDocumentPropertyValues {
+					r#type: Some(String::from("string")),
+					min_length: Some(6),
+					max_length: Some(60),
+					r#enum: None,
+					items: None
+				}
+			},
+			SchemaDocumentProperty {
+				name: "tags".to_string(),
+				properties: SchemaDocumentPropertyValues {
+					r#type: Some(String::from("array")),
+					min_length: None,
+					max_length: None,
+					r#enum: None,
+					items: Some(SchemaDocumentPropertyArray {
+						r#type: "number".to_string(),
+						maximum: 10
+					})
+				}
+			}
+		],
+		Some(vec![String::from("firstName")])
+	).await.unwrap();
 
 	// Actix server
 	HttpServer::new(|| {
 			App::new()
+				.app_data(Data::new(schema()))
 				.wrap(
 					Cors::default()
 						.allow_any_origin()

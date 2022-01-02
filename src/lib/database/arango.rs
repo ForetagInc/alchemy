@@ -7,11 +7,12 @@ use arangors_lite::collection::options::{
 };
 
 use anyhow::Error;
-use serde_json::json;
+use serde_json::{ json, Value as JsonValue };
 
 use arangors_lite::Database as ArangoDatabase;
 
-use crate::lib::schema::types::{ 
+use crate::lib::schema::types::{
+	SchemaDocumentPropertyValues,
 	SchemaDocumentProperty,
 	SchemaRequiredTypes
 };
@@ -53,19 +54,31 @@ impl Database
 	pub async fn create_collection(
 		&self, 
 		name: String,
-		properties: SchemaDocumentProperty,
+		properties: Vec<SchemaDocumentProperty>,
 		required: Option<SchemaRequiredTypes>
 	) -> Result<(), Error> {
-		let schema = json!({
+		let mut schema = json!({
 			"message": "Test validation failed",
 			"level": "strict",
 			"rule": {
 				"type": "object",
-				"properties": properties
+				"properties": {},
+				"required": required,
+				"additionalProperties": false
 			},
-			"required": required.unwrap_or(vec![]),
-			"additionalProperties": false
 		});
+
+		for property in properties
+		{
+			let property: SchemaDocumentProperty = property;
+
+			let value = serde_json::to_value(property.properties).unwrap();
+
+			schema["rule"]["properties"]
+				.as_object_mut()
+				.unwrap()
+				.insert(String::from(property.name), value);
+		}
 
 		let collection_options = CollectionOptions::builder()
 			.name(name.as_str())
