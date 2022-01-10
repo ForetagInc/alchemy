@@ -52,24 +52,3 @@ Structure / Data type (Object)
 
 User / Service 
 	-> Properties
-
-
-
-{
-	"firstName": {
-		"type": "string",
-		"minLength": 2,
-		"maxLength": 30
-	},
-	"lastName": {
-		"type": "string",
-		"minLength": 2,
-		"maxLength": 30
-	},
-	"role": {
-		"enum": [
-			"lead",
-			"customer",
-		]
-	}
-}

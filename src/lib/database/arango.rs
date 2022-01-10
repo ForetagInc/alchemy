@@ -7,7 +7,7 @@ use arangors_lite::collection::options::{
 };
 
 use anyhow::Error;
-use serde_json::{ json, Value as JsonValue };
+use serde_json::{ json, to_value as toJsonValue };
 
 use arangors_lite::Database as ArangoDatabase;
 
@@ -72,12 +72,13 @@ impl Database
 		{
 			let property: SchemaDocumentProperty = property;
 
-			let value = serde_json::to_value(property.properties).unwrap();
-
 			schema["rule"]["properties"]
 				.as_object_mut()
 				.unwrap()
-				.insert(String::from(property.name), value);
+				.insert(
+					String::from(property.name), 
+					toJsonValue(property.properties).unwrap()
+				);
 		}
 
 		let collection_options = CollectionOptions::builder()

@@ -1,3 +1,5 @@
+use serde_json::json;
+
 pub struct Query;
 
 #[juniper::graphql_object]

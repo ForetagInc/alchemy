@@ -1,3 +1,5 @@
+#[macro_use] extern crate juniper;
+
 use actix_cors::Cors;
 use actix_web::{
 	http::header,
@@ -21,14 +23,17 @@ use lib::graphql::{ Context, Schema, schema };
 
 use lib::database::Database;
 use lib::schema::types::{ 
-	SchemaDocumentProperty, 
+	SchemaDocumentProperty,
 	SchemaDocumentPropertyArray,
 	SchemaDocumentPropertyValues 
 };
 
 async fn playground_route() -> Result<ActixResponse, ActixError>
 {
-	playground_handler("/graphql", Some("/graphql_subscriptions")).await
+	playground_handler(
+		"/graphql", 
+		Some("/graphql_subscriptions")
+	).await
 }
 
 async fn graphql_route(
@@ -89,28 +94,27 @@ async fn main() -> std::io::Result<()>
 
 	// Actix server
 	HttpServer::new(|| {
-			App::new()
-				.app_data(Data::new(schema()))
-				.wrap(
-					Cors::default()
-						.allow_any_origin()
-						.allowed_methods(vec!["POST", "GET"])
-						.allowed_headers(vec![header::AUTHORIZATION, header::ACCEPT])
-						.allowed_header(header::CONTENT_TYPE)
-						.supports_credentials()
-						.max_age(3600)
-				)
-				.wrap(middleware::Compress::default())
-				.wrap(middleware::Logger::default())
-				.service(
-					web::resource("/graphql")
-						.route(web::post().to(graphql_route))
-						.route(web::get().to(graphql_route))
-				)
-				.service(web::resource("/playground").route(web::get().to(playground_route)))
-		})
-		.bind(("0.0.0.0", 8080))?
-		.workers(1)
-		.run()
-		.await
+		App::new()
+			.app_data(Data::new(schema()))
+			.wrap(
+				Cors::default()
+					.allow_any_origin()
+					.allowed_methods(vec!["POST", "GET"])
+					.allowed_headers(vec![header::AUTHORIZATION, header::ACCEPT])
+					.allowed_header(header::CONTENT_TYPE)
+					.supports_credentials()
+					.max_age(3600)
+			)
+			.wrap(middleware::Compress::default())
+			.wrap(middleware::Logger::default())
+			.service(
+				web::resource("/graphql")
+					.route(web::post().to(graphql_route))
+					.route(web::get().to(graphql_route))
+			)
+			.service(web::resource("/playground").route(web::get().to(playground_route)))
+	})
+	.bind(("0.0.0.0", 8080))?
+	.run()
+	.await
 }

@@ -16,3 +16,8 @@ pub fn schema() -> Schema
 		EmptySubscription::new()
 	)
 }
+
+pub fn generate_schema()
+{
+	todo!();
+}
