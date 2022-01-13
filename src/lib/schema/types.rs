@@ -1,7 +1,24 @@
 pub mod collection;
 
-use juniper::GraphQLObject;
 use serde::{ Serialize, Deserialize };
+
+pub struct CollectionSchema
+{
+	message: String,
+	level: String,
+	rule: CollectionSchemaRule
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionSchemaRule
+{
+	r#type: String,
+	properties: Vec<SchemaDocumentProperty>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	required: Option<Vec<String>>,
+	additional_properties: bool
+}
 
 #[derive(Default, Serialize, Deserialize, GraphQLObject)]
 #[serde(rename_all = "camelCase")]
