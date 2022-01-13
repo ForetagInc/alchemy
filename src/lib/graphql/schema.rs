@@ -1,18 +1,18 @@
-use crate::lib::graphql::Query;
+use super::Query;
+use super::Mutation;
 
 use juniper::{
 	RootNode,
-	EmptyMutation,
 	EmptySubscription
 };
 
-pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
+pub type Schema = RootNode<'static, Query, Mutation, EmptySubscription>;
 
 pub fn schema() -> Schema
 {
 	Schema::new(
 		Query,
-		EmptyMutation::new(),
+		Mutation,
 		EmptySubscription::new()
 	)
 }

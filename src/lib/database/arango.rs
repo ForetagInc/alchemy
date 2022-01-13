@@ -12,7 +12,6 @@ use serde_json::{ json, to_value as toJsonValue };
 use arangors_lite::Database as ArangoDatabase;
 
 use crate::lib::schema::types::{
-	SchemaDocumentPropertyValues,
 	SchemaDocumentProperty,
 	SchemaRequiredTypes
 };

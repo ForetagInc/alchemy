@@ -1,7 +1,7 @@
-pub struct Query;
+pub struct Mutation;
 
 #[juniper::graphql_object]
-impl Query
+impl Mutation
 {
 	fn alchemy_version() -> &'static str
 	{

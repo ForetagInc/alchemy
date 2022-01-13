@@ -1,5 +1,3 @@
-#[macro_use] extern crate juniper;
-
 use actix_cors::Cors;
 use actix_web::{
 	http::header,
@@ -90,7 +88,7 @@ async fn main() -> std::io::Result<()>
 			}
 		],
 		Some(vec![String::from("firstName")])
-	).await.unwrap();
+	).await;
 
 	// Actix server
 	HttpServer::new(|| {
