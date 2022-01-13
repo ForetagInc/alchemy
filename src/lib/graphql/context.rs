@@ -1,22 +1,22 @@
-#[derive(Default, Clone)]
+use crate::lib::database::Database;
+
 pub struct Context
 {
-	authenticated: bool
+	pub authenticated: bool,
+	pub database: Database
 }
 
 impl Context
 {
-	pub fn new() -> Context
+	pub async fn new() -> Context
 	{
+		let database = Database::new().await;
+
 		Context
 		{
-			authenticated: false
+			authenticated: false,
+			database
 		}
-	}
-
-	pub fn ctx() -> ()
-	{
-		()
 	}
 }
 

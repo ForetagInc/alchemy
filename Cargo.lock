@@ -286,6 +286,7 @@ dependencies = [
  "json",
  "juniper",
  "juniper_actix",
+ "juniper_codegen",
  "serde",
  "serde_json",
  "tokio",

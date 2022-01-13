@@ -1,5 +1,3 @@
-use juniper::GraphQLObject;
-
 use super::SchemaDocumentProperty;
 
 #[derive(GraphQLObject)]

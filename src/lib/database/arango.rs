@@ -7,19 +7,22 @@ use arangors_lite::collection::options::{
 };
 
 use anyhow::Error;
-use serde_json::{ json, to_value as toJsonValue };
+use serde_json::{
+	value::Value as JsonValue,
+	to_value as toJsonValue
+};
 
 use arangors_lite::Database as ArangoDatabase;
 
 use crate::lib::schema::types::{
 	SchemaDocumentProperty,
-	SchemaRequiredTypes
+	SchemaRequiredTypes, CollectionSchema, CollectionSchemaRule
 };
 
 pub struct Database
 {
-	connection: ArangoConnection,
-	database: ArangoDatabase
+	pub connection: ArangoConnection,
+	pub database: ArangoDatabase
 }
 
 impl Database
@@ -56,38 +59,38 @@ impl Database
 		properties: Vec<SchemaDocumentProperty>,
 		required: Option<SchemaRequiredTypes>
 	) -> Result<(), Error> {
-		let mut schema = json!({
-			"message": "Test validation failed",
-			"level": "strict",
-			"rule": {
-				"type": "object",
-				"properties": {},
-				"required": required,
-				"additionalProperties": false
-			},
-		});
 
+		// Create a schema struct to be populated with an empty JSON Map for properties
+		let mut schema = CollectionSchema {
+			message: String::from( "Test validation failed"),
+			level: String::from("strict"),
+			rule: CollectionSchemaRule {
+				r#type: String::from("object"),
+				properties: JsonValue::Object(serde_json::Map::new()),
+				required,
+				additional_properties: false
+			}
+		};
+
+		// Iterate over the properties and add them to the schema rules
 		for property in properties
 		{
-			let property: SchemaDocumentProperty = property;
-
-			schema["rule"]["properties"]
+			schema.rule.properties
 				.as_object_mut()
 				.unwrap()
 				.insert(
-					String::from(property.name), 
-					toJsonValue(property.properties).unwrap()
+					property.name.clone(),
+					toJsonValue(property.properties).unwrap(),
 				);
 		}
 
+		// Create the collection with the schema
 		let collection_options = CollectionOptions::builder()
 			.name(name.as_str())
-			.schema(schema)
+			.schema(toJsonValue(schema).unwrap())
 			.build();
 
-		let collection = self.database.create_collection_with_options(collection_options, CreateParameters::default()).await?;
-
-		println!("Created collection {:?}", collection);
+		self.database.create_collection_with_options(collection_options, CreateParameters::default()).await?;
 
 		Ok(())
 	}
