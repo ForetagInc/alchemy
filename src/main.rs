@@ -19,8 +19,9 @@ use actix_web::{
 
 use juniper_actix::{ graphql_handler, playground_handler };
 
-pub mod lib;
-use lib::graphql::{ Context, Schema, schema };
+mod lib;
+mod api;
+use api::graphql::{ Context, Schema, schema };
 
 async fn playground_route() -> Result<ActixResponse, ActixError>
 {

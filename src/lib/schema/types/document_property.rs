@@ -1,48 +1,22 @@
-pub mod collection;
-
 use juniper::{ FromInputValue, InputValue, marker::IsInputType };
 use serde::{ Serialize, Deserialize };
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CollectionSchema
-{
-	pub message: String,
-	pub level: String,
-	pub rule: CollectionSchemaRule
-}
+use crate::lib::schema::collection_types::{
+	SchemaDocumentPropertyValues,
+	SchemaDocumentPropertyArray
+};
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct CollectionSchemaRule
-{
-	pub r#type: String,
-	pub properties: serde_json::Value,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub required: Option<SchemaRequiredTypes>,
-	pub additional_properties: bool
-}
-
-#[derive(Default, Serialize, Deserialize, Debug, GraphQLObject)]
-#[serde(rename_all = "camelCase")]
-pub struct SchemaDocumentPropertyValues
-{
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub r#type: Option<String>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub min_length: Option<i32>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub max_length: Option<i32>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub r#enum: Option<Vec<String>>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub items: Option<SchemaDocumentPropertyArray>
-}
-
-#[derive(Default, Serialize, Deserialize, Debug, GraphQLObject)]
+#[derive(Default, Serialize, Deserialize, GraphQLObject)]
 pub struct SchemaDocumentProperty
 {
 	pub name: String,
 	pub properties: SchemaDocumentPropertyValues
+}
+
+impl IsInputType for SchemaDocumentProperty
+{
+	fn mark()
+	{}
 }
 
 impl FromInputValue for SchemaDocumentProperty
@@ -116,12 +90,3 @@ impl FromInputValue for SchemaDocumentProperty
 		})
 	}
 }
-
-#[derive(Debug, Serialize, Deserialize, GraphQLObject)]
-pub struct SchemaDocumentPropertyArray
-{
-	pub r#type: String,
-	pub maximum: i32
-}
-
-pub type SchemaRequiredTypes = Vec<String>;

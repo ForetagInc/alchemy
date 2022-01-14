@@ -1,4 +1,4 @@
-use crate::lib::graphql::Context;
+use super::Context;
 
 pub struct Query;
 

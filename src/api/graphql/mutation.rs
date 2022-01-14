@@ -1,10 +1,11 @@
 use crate::lib::graphql::Context;
 
-use crate::lib::schema::types::{
-	SchemaDocumentProperty,
+use crate::lib::schema::collection_types::{
 	SchemaDocumentPropertyValues,
 	SchemaDocumentPropertyArray
 };
+
+use crate::lib::schema::types::document_property::SchemaDocumentProperty;
 
 pub struct Mutation;
 
