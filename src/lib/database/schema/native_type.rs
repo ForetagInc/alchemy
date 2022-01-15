@@ -1,11 +1,10 @@
 use serde::{ Serialize, Deserialize };
 
 /// The native types for Arango to store
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Default)]
 pub enum SchemaNativeType
 {
-	String,
+	#[default] String,
 	Integer,
-	Array,
 	Boolean
 }
