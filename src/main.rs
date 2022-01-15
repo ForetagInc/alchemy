@@ -1,3 +1,5 @@
+#![feature(derive_default_enum)]
+
 extern crate juniper;
 #[macro_use] extern crate juniper_codegen;
 
