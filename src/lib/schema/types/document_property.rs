@@ -52,9 +52,9 @@ impl FromInputValue for SchemaDocumentProperty
 					.map(|t| t as i32),
 
 				max_length: properties
-						.get("maxLength")
-						.and_then(|t| t.as_int_value())
-						.map(|v| v as i32),
+					.get("maxLength")
+					.and_then(|t| t.as_int_value())
+					.map(|v| v as i32),
 				
 				r#enum: properties
 					.get("enum")
