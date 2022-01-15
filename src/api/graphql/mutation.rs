@@ -1,11 +1,14 @@
-use crate::lib::graphql::Context;
+use super::Context;
 
-use crate::lib::schema::collection_types::{
-	SchemaDocumentPropertyValues,
-	SchemaDocumentPropertyArray
+use crate::lib::database::schema::{
+	SchemaPropertyType,
+	SchemaNativeType
 };
 
-use crate::lib::schema::types::document_property::SchemaDocumentProperty;
+use crate::lib::schema::{
+	SchemaDocumentProperty, 
+	SchemaDocumentPropertyValues,
+};
 
 pub struct Mutation;
 
@@ -15,47 +18,40 @@ impl Mutation
 	pub async fn create_collection(
 		context: &Context,
 		#[graphql] name: String,
-		#[graphql] properties: Vec<SchemaDocumentProperty>,
+		// #[graphql] properties: Vec<SchemaDocumentProperty>,
 	) -> bool {
-		let schema = vec![
+		let properties = vec![
 			SchemaDocumentProperty {
 				name: "firstName".to_string(),
-				properties: SchemaDocumentPropertyValues {
-					r#type: Some(String::from("string")),
-					min_length: Some(4),
+				values: SchemaDocumentPropertyValues {
+					r#type: SchemaPropertyType::String,
 					max_length: Some(30),
-					r#enum: None,
-					items: None
+					..Default::default()
 				}
 			},
 			SchemaDocumentProperty {
 				name: "lastName".to_string(),
-				properties: SchemaDocumentPropertyValues {
-					r#type: Some(String::from("string")),
+				values: SchemaDocumentPropertyValues {
+					r#type: SchemaPropertyType::String,
 					min_length: Some(6),
-					max_length: Some(60),
-					r#enum: None,
-					items: None
+					max_length: Some(30),
+					..Default::default()
 				}
 			},
 			SchemaDocumentProperty {
 				name: "tags".to_string(),
-				properties: SchemaDocumentPropertyValues {
-					r#type: Some(String::from("array")),
-					min_length: None,
-					max_length: None,
-					r#enum: None,
-					items: Some(SchemaDocumentPropertyArray {
-						r#type: "number".to_string(),
-						maximum: 10
-					})
+				values: SchemaDocumentPropertyValues {
+					r#type: SchemaPropertyType::Array,
+					array_type: Some(SchemaNativeType::String),
+					max_length: Some(5),
+					..Default::default()
 				}
-			}
+			},
 		];
 
 		if let Ok(_) = context
 			.database
-			.create_collection(name, schema, None)
+			.create_collection(name, properties, None)
 			.await {
 				return true;
 			} else {

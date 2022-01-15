@@ -1,5 +1,3 @@
-use core::fmt;
-
 use serde::{ Serialize, Deserialize };
 
 use super::SchemaNativeType;
@@ -15,17 +13,17 @@ pub enum SchemaPropertyType
 	Enum
 }
 
-impl fmt::Display for SchemaPropertyType
+impl SchemaPropertyType
 {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+	pub fn as_str(&self) -> String
 	{
 		match self
 		{
-			SchemaPropertyType::String => write!(f, "string"),
-			SchemaPropertyType::Integer => write!(f, "integer"),
-			SchemaPropertyType::Array => write!(f, "array"),
-			SchemaPropertyType::Boolean => write!(f, "boolean"),
-			SchemaPropertyType::Enum => write!(f, "enum"),
+			SchemaPropertyType::String => String::from("string"),
+			SchemaPropertyType::Integer => String::from("integer"),
+			SchemaPropertyType::Array => String::from("array"),
+			SchemaPropertyType::Boolean => String::from("boolean"),
+			SchemaPropertyType::Enum => String::from("enum")
 		}
 	}
 }

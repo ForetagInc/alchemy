@@ -18,8 +18,3 @@ pub fn schema() -> Schema
 		EmptySubscription::<Context>::new()
 	)
 }
-
-pub fn generate_schema()
-{
-	todo!();
-}

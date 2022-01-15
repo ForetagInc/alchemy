@@ -2,6 +2,7 @@ use serde::{ Serialize, Deserialize };
 
 use crate::lib::database::schema::{ 
 	SchemaProperty,
+	SchemaNativeType,
 	SchemaPropertyType, 
 	SchemaNativeTypeArray
  };
@@ -14,6 +15,7 @@ pub struct SchemaDocumentProperty
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Default, GraphQLInputObject)]
+#[serde(rename_all = "camelCase")]
 pub struct SchemaDocumentPropertyValues
 {
 	pub r#type: SchemaPropertyType,
@@ -22,15 +24,9 @@ pub struct SchemaDocumentPropertyValues
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub max_length: Option<i32>,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	pub r#enum: Option<Vec<String>>
-}
-
-impl SchemaDocumentPropertyValues
-{
-	pub fn new() -> Self
-	{
-		Default::default()
-	}
+	pub r#enum: Option<Vec<String>>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub array_type: Option<SchemaNativeType>
 }
 
 impl From<SchemaDocumentPropertyValues> for SchemaProperty
@@ -38,13 +34,16 @@ impl From<SchemaDocumentPropertyValues> for SchemaProperty
 	fn from(values: SchemaDocumentPropertyValues) -> Self
 	{
 		let mut property = SchemaProperty::new();
-		property.r#type = Some(values.r#type.to_string());
+		property.r#type = Some(values.r#type.as_str());
 
 		match values.r#type
 		{
 			SchemaPropertyType::Array => {
 				property.items = Some(SchemaNativeTypeArray {
-					r#type: values.r#type.into(),
+					r#type: values
+							.array_type
+							.unwrap_or(SchemaNativeType::String)
+							.as_str(),
 					maximum: values.max_length.unwrap_or(0)
 				});
 			},
@@ -53,7 +52,6 @@ impl From<SchemaDocumentPropertyValues> for SchemaProperty
 			},
 			// Default for string, integer and boolean
 			_ => {
-				property.r#type = Some(values.r#type.to_string());
 				property.min_length = values.min_length;
 				property.max_length =  values.max_length;
 			}

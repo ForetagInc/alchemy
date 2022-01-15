@@ -1,7 +1,7 @@
 use serde::{ Serialize, Deserialize };
 
 /// The Arango schema for a collection
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Rule
 {

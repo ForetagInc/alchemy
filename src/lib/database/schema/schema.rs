@@ -1,7 +1,7 @@
 use serde::{ Serialize, Deserialize };
 use super::Rule;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Schema
 {
 	pub message: String,
