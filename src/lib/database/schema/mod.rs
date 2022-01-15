@@ -1,6 +1,9 @@
 pub mod schema;
 pub use schema::Schema;
 
+pub mod rule;
+pub use rule::Rule;
+
 pub mod native_type;
 pub use native_type::SchemaNativeType;
 

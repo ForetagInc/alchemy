@@ -14,13 +14,9 @@ use serde_json::{
 
 use arangors_lite::Database as ArangoDatabase;
 
-use crate::lib::schema::collection_types::{
-	CollectionSchema,
-	CollectionSchemaRule,
-	SchemaRequiredTypes
-};
+use crate::lib::schema::SchemaDocumentProperty;
+use crate::lib::database::schema::{ Schema, Rule };
 
-use crate::lib::schema::types::document_property::SchemaDocumentProperty;
 
 pub struct Database
 {
@@ -60,14 +56,14 @@ impl Database
 		&self, 
 		name: String,
 		properties: Vec<SchemaDocumentProperty>,
-		required: Option<SchemaRequiredTypes>
+		required: Option<Vec<String>>
 	) -> Result<(), Error> {
 
 		// Create a schema struct to be populated with an empty JSON Map for properties
-		let mut schema = CollectionSchema {
+		let mut schema = Schema {
 			message: String::from(format!("{:?} schema validation failed", name)),
 			level: String::from("strict"),
-			rule: CollectionSchemaRule {
+			rule: Rule {
 				r#type: String::from("object"),
 				properties: JsonValue::Object(serde_json::Map::new()),
 				required,
@@ -83,7 +79,7 @@ impl Database
 				.unwrap()
 				.insert(
 					property.name.clone(),
-					toJsonValue(property.properties).unwrap(),
+					toJsonValue(property.values).unwrap(),
 				);
 		}
 

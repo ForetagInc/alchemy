@@ -5,7 +5,7 @@ use serde::{ Serialize, Deserialize };
 use super::SchemaNativeType;
 
 /// The schema property type of the collection
-#[derive(Serialize, Deserialize, PartialEq, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Default, GraphQLEnum)]
 pub enum SchemaPropertyType
 {
 	#[default] String,

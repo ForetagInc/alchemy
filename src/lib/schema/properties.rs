@@ -6,14 +6,14 @@ use crate::lib::database::schema::{
 	SchemaNativeTypeArray
  };
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, GraphQLInputObject)]
 pub struct SchemaDocumentProperty
 {
 	pub name: String,
 	pub values: SchemaDocumentPropertyValues
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Default, GraphQLInputObject)]
 pub struct SchemaDocumentPropertyValues
 {
 	pub r#type: SchemaPropertyType,
