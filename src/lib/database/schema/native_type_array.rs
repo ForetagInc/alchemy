@@ -5,5 +5,5 @@ use serde::{ Serialize, Deserialize };
 pub struct SchemaNativeTypeArray
 {
 	pub r#type: String,
-	pub maximum: i32
+	pub maximum: Option<i32>
 }
