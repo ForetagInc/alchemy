@@ -1,10 +1,10 @@
 use serde::{ Serialize, Deserialize };
 
 /// The schema property type of the collection
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Default)]
 pub enum SchemaPropertyType
 {
-	String,
+	#[default] String,
 	Integer,
 	Array,
 	Boolean,
