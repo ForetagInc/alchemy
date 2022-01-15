@@ -36,6 +36,9 @@ impl From<SchemaDocumentPropertyValues> for SchemaProperty
 		let mut property = SchemaProperty::new();
 		property.r#type = Some(values.r#type.as_str());
 
+		// TODO: guard to ensure that the values are of either default, array or enum
+		// perhaps use https://graphql-rust.github.io/juniper/master/types/unions.html
+
 		match values.r#type
 		{
 			SchemaPropertyType::Array => {
@@ -48,6 +51,7 @@ impl From<SchemaDocumentPropertyValues> for SchemaProperty
 				});
 			},
 			SchemaPropertyType::Enum => {
+				property.r#type = None;
 				property.r#enum = values.r#enum;
 			},
 			// Default for string, integer and boolean
