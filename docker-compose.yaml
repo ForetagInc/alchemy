@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+      alchemy:
+            image: 
+      arango:
+            image: "arangodb:latest"
+            container_name: "arangodb"
+            ports:
+                - "8529:8529"
+            volumes:
+                  - "/var/lib/arangodb3/data:/var/lib/arangodb3/data"
+            environment:
+                  - "ARANGO_ROOT_PASSWORD=${ARANGO_ROOT_PASSWORD}"
