@@ -1,3 +1,4 @@
+# Build
 FROM rust:latest as build
 
 RUN user=root cargo new --bin alchemy
@@ -13,7 +14,8 @@ COPY ./src ./src
 RUN rm ./target/release/deps/alchemy*
 RUN cargo build --release
 
+# Run binary
 FROM rust:1.58.0-slim-buster
 
-COPY -from=build /alchemy/target/release/alchemy ./
+COPY --from=build /alchemy/target/release/alchemy ./
 CMD ["./alchemy"]
