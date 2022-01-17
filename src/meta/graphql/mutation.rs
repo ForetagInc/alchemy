@@ -21,4 +21,18 @@ impl Mutation
 				return false;
 			}
 	}
+
+	pub async fn delete_collection(
+		context: &Context,
+		#[graphql] name: String
+	) -> bool {
+		if let Ok(_) = context
+			.database
+			.delete_collection(name)
+			.await {
+				return true;
+			} else {
+				return false;
+			}
+	}
 }
