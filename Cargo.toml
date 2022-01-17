@@ -6,6 +6,8 @@ edition = '2021'
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+lazy_static = '1.4'
+envy = '0.4'
 arangors_lite = '0.1'
 serde = '1'
 serde_json = '1'
