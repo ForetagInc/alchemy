@@ -7,8 +7,10 @@ use lazy_static::lazy_static;
 #[derive(Deserialize, Debug)]
 pub struct Config
 {
-	pub arango_url: String,
-	pub arango_database: String,
+	pub db_host: String,
+	pub db_user: String,
+	pub db_pass: String,
+	pub db_name: String,
 	
 	pub rust_env: String
 }
@@ -45,6 +47,7 @@ fn load_config() -> Result<Config>
 			for line in content.lines()
 			{
 				let pair = line.split('=').collect::<Vec<&str>>();
+
 				let (key, value) = match &pair[..] {
 					&[key, value] => (key, value),
 					_ => panic!("Expected env variable pairs, got {}", content)

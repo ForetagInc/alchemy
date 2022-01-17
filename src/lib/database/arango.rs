@@ -1,5 +1,3 @@
-use std::env::var as ENV_VAR;
-
 use arangors_lite::Connection as ArangoConnection;
 use arangors_lite::collection::options::{
 	CreateParameters, 
@@ -14,6 +12,7 @@ use serde_json::{
 
 use arangors_lite::Database as ArangoDatabase;
 
+use crate::lib::CONFIG;
 use crate::lib::schema::SchemaDocumentProperty;
 use crate::lib::database::schema::{ Schema, Rule, SchemaProperty };
 
@@ -28,15 +27,15 @@ impl Database
 	pub async fn new() -> Database
 	{
 		let connection = ArangoConnection::establish_basic_auth(
-			ENV_VAR("DB_HOST").unwrap_or(String::from("http://localhost:8529")).as_str(), 
-			ENV_VAR("DB_USER").unwrap_or(String::from("root")).as_str(),
-			ENV_VAR("DB_PASS").unwrap_or(String::from("root01")).as_str(),
+			&CONFIG.db_host.as_str(), 
+			&CONFIG.db_user.as_str(),
+			&CONFIG.db_pass.as_str(),
 		)
 		.await
 		.unwrap();
 		
 		let database = connection
-			.db("alchemy")
+			.db(&CONFIG.db_name.as_str())
 			.await
 			.unwrap();
 
