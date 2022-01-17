@@ -95,4 +95,14 @@ impl Database
 
 		Ok(())
 	}
+
+	pub async fn delete_collection(
+		&self,
+		name: String
+	) -> Result<(), Error> {
+
+		self.database.drop_collection(name.as_str()).await?;
+
+		Ok(())
+	}
 }
