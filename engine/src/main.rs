@@ -9,38 +9,15 @@ use actix_web::{
 	middleware,
 	web::{ 
 		self, 
-		Data,
-		Payload as ActixPayload
+		Data
 	},
 	App,
-	Error as ActixError,
-	HttpRequest as ActixRequest,
-	HttpResponse as ActixResponse,
 	HttpServer, 
 };
 
-use juniper_actix::{ graphql_handler, playground_handler };
-
 mod lib;
-mod api;
-use api::graphql::{ Context, Schema, schema };
-
-async fn playground_route() -> Result<ActixResponse, ActixError>
-{
-	playground_handler(
-		"/graphql", 
-		Some("/graphql_subscriptions")
-	).await
-}
-
-async fn graphql_route(
-	req: ActixRequest,
-	payload: ActixPayload,
-	schema: Data<Schema>,
-) -> Result<ActixResponse, ActixError> {
-	let context = Context::new().await;
-	graphql_handler(&schema, &context, req, payload).await
-}
+mod meta;
+use meta::graphql::{ schema, graphql_meta_route, playground_meta_route };
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()>
@@ -63,11 +40,11 @@ async fn main() -> std::io::Result<()>
 			.wrap(middleware::Compress::default())
 			.wrap(middleware::Logger::default())
 			.service(
-				web::resource("/graphql")
-					.route(web::post().to(graphql_route))
-					.route(web::get().to(graphql_route))
+				web::resource("/meta/graphql")
+					.route(web::post().to(graphql_meta_route))
+					.route(web::get().to(graphql_meta_route))
 			)
-			.service(web::resource("/playground").route(web::get().to(playground_route)))
+			.service(web::resource("/meta/playground").route(web::get().to(playground_meta_route)))
 	})
 	.bind(("0.0.0.0", 8080))?
 	.run()
