@@ -12,4 +12,3 @@ pub mod context;
 pub use context::Context;
 
 pub mod server;
-pub use server::{ graphql_meta_route, playground_meta_route };

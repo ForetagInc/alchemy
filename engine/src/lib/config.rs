@@ -38,7 +38,6 @@ fn load_config() -> Result<Config>
 		Err(_) =>
 		{
 			// Load from .env file
-
 			let mut file = File::open(".env")?;
 			let mut content = String::new();
 			
