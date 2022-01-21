@@ -24,7 +24,7 @@ use lib::CONFIG;
 #[actix_web::main]
 async fn main() -> std::io::Result<()>
 {
-	let app_port = CONFIG.app_port.parse::<u16>().unwrap();
+	let app_port  = CONFIG.app_port.parse::<u16>().unwrap_or(8080);
 
 	println!("Starting Alchemy on port {:?}", app_port);
 
