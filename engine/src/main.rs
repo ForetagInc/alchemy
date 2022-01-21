@@ -19,10 +19,14 @@ mod api;
 mod lib;
 mod meta;
 
+use lib::CONFIG;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()>
 {
-	println!("Starting Alchemy on port 8080");
+	let app_port = CONFIG.app_port.parse::<u16>().unwrap();
+
+	println!("Starting Alchemy on port {:?}", app_port);
 
 	// Actix server
 	HttpServer::new(|| {
@@ -53,7 +57,7 @@ async fn main() -> std::io::Result<()>
 			)
 			.service(web::resource("/meta/playground").route(web::get().to(meta::graphql::server::playground_meta_route)))
 	})
-	.bind(("0.0.0.0", 8080))?
+	.bind(("0.0.0.0", app_port))?
 	.run()
 	.await
 }

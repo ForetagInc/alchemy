@@ -12,7 +12,9 @@ pub struct Config
 	pub db_pass: String,
 	pub db_name: String,
 	
-	pub rust_env: String
+	pub rust_env: String,
+
+	pub app_port: String
 }
 
 impl Config
