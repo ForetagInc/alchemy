@@ -14,7 +14,7 @@ use arangors_lite::Database as ArangoDatabase;
 
 use crate::lib::CONFIG;
 use crate::lib::schema::SchemaDocumentProperty;
-use crate::lib::database::schema::{ Schema, Rule, SchemaProperty };
+use crate::lib::database::schema::{ DatabaseSchema, Rule, SchemaProperty };
 
 pub struct Database
 {
@@ -58,7 +58,7 @@ impl Database
 	) -> Result<(), Error> {
 
 		// Create a schema struct to be populated with an empty JSON Map for properties
-		let mut schema = Schema {
+		let mut schema = DatabaseSchema {
 			message: String::from("Schema validation failed"),
 			level: String::from("strict"),
 			rule: Rule {

@@ -1,5 +1,5 @@
 pub mod schema;
-pub use schema::Schema;
+pub use schema::DatabaseSchema;
 
 pub mod rule;
 pub use rule::Rule;
