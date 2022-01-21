@@ -1,5 +1,5 @@
-use arangors_lite::Connection as ArangoConnection;
-use arangors_lite::collection::options::{
+use rust_arango::Connection as ArangoConnection;
+use rust_arango::collection::options::{
 	CreateParameters, 
 	CreateOptions as CollectionOptions
 };
@@ -10,7 +10,7 @@ use serde_json::{
 	to_value as toJsonValue
 };
 
-use arangors_lite::Database as ArangoDatabase;
+use rust_arango::Database as ArangoDatabase;
 
 use crate::lib::CONFIG;
 use crate::lib::schema::SchemaDocumentProperty;

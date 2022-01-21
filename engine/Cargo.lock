@@ -282,13 +282,13 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "anyhow",
- "arangors_lite",
  "envy",
  "json",
  "juniper",
  "juniper_actix",
  "juniper_codegen",
  "lazy_static",
+ "rust_arango",
  "serde",
  "serde_json",
  "tokio",
@@ -299,27 +299,6 @@ name = "anyhow"
 version = "1.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84450d0b4a8bd1ba4144ce8ce718fbc5d071358b1e5384bace6536b3d1f2d5b3"
-
-[[package]]
-name = "arangors_lite"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bac2f1b761537830bdfe2eda851bf20509fb1c62a4e610380c1f660eccd7a08"
-dependencies = [
- "async-trait",
- "base64",
- "futures",
- "http",
- "log",
- "maybe-async",
- "reqwest",
- "serde",
- "serde_json",
- "serde_qs",
- "thiserror",
- "typed-builder",
- "url",
-]
 
 [[package]]
 name = "ascii"
@@ -1533,6 +1512,27 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "winreg",
+]
+
+[[package]]
+name = "rust_arango"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "960a80c651bcf8a117add3ce9d1f1733180e2cdaeeef1313beafe37ba2c72074"
+dependencies = [
+ "async-trait",
+ "base64",
+ "futures",
+ "http",
+ "log",
+ "maybe-async",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_qs",
+ "thiserror",
+ "typed-builder",
+ "url",
 ]
 
 [[package]]
