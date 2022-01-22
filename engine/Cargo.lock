@@ -283,6 +283,7 @@ dependencies = [
  "actix-web",
  "anyhow",
  "envy",
+ "graphql-parser 0.4.0",
  "json",
  "juniper",
  "juniper_actix",
@@ -793,6 +794,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "graphql-parser"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2ebc8013b4426d5b81a4364c419a95ed0b404af2b82e2457de52d9348f0e474"
+dependencies = [
+ "combine",
+ "thiserror",
+]
+
+[[package]]
 name = "h2"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -988,7 +999,7 @@ dependencies = [
  "fnv",
  "futures",
  "futures-enum",
- "graphql-parser",
+ "graphql-parser 0.3.0",
  "indexmap",
  "juniper_codegen",
  "serde",

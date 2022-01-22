@@ -1,13 +1,16 @@
 use crate::lib::{
-	database::Database, 
+	database::Database,
+	database::schema::{ DatabaseSchema, SchemaProperty },
 	schema::{ SchemaDocumentProperty, SchemaDocumentPropertyValues }
 };
+
+use rust_arango::AqlQuery;
 
 pub async fn generate_collections() 
 {
 	let arango = Database::new().await;
 
-	let mut schema_collections: Vec<SchemaDocumentProperty> = Vec::new();
+	let schema_collections: Vec<SchemaDocumentProperty> = Vec::new();
 	
 	let collections = arango.database.accessible_collections().await.unwrap();
 
@@ -21,16 +24,18 @@ pub async fn generate_collections()
 			let name = collection.name.clone();
 
 			// Fetch the schema from the database
-			let instance = arango.database.collection(name.as_str()).await.unwrap();
+			let properties = arango
+				.database
+				.collection(name.as_str())
+				.await
+				.unwrap()
+				.properties()
+				.await
+				.unwrap();
 
-			println!("Collection {} with data {:?}", name, instance.properties().await.unwrap());
+			let schema: DatabaseSchema = serde_json::from_value(properties.info.schema.unwrap()).unwrap();
 
-			// schema_collections.push(SchemaDocumentProperty {
-			// 	name: collection.name.clone(),
-			// 	values: SchemaDocumentPropertyValues {
-					
-			// 	}
-			// });
+			println!("Schema: {:?}", schema);
 		}
 	}
 

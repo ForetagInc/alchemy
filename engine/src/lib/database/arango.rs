@@ -39,10 +39,6 @@ impl Database
 			.await
 			.unwrap();
 
-		// let collections = database.accessible_collections().await?;
-
-		// println!("Collections: {:?}", collections);
-
 		Database
 		{
 			connection,
