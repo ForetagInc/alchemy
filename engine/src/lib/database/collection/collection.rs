@@ -1,47 +1,49 @@
-use super::Property;
-
 use crate::lib::database::Database;
 use crate::lib::schema::properties::SchemaDocumentProperty;
 
-
-use serde_json::{ 
-	json, 
-	to_value as to_json_value, 
-	value::Value as JSONValue,
+use serde_json::{
+	from_value,
+	value::Value as JSONValue
 };
-use arangors_lite::AqlQuery;
+use jsonschema::{ is_valid, JSONSchema };
+
+use rust_arango::{ AqlQuery, collection::response::Properties };
 
 pub struct Collection
 {
 	pub name: String,
-	pub schema: Vec<SchemaDocumentProperty>,
+	pub properties: Vec<SchemaDocumentProperty>,
 
 	arango: Database
 }
 
 impl Collection
 {
-	/// Generate a list of properties and its configurations of the collection
-	/// 
-	/// For instance a `User` collection the following would be considered properties:
-	/// `first_name`, `last_name`, `email`, `password`, the types of these properties
-	/// as well as the maximum and minimum length.
-	fn get_properties(&self) -> Vec<Property>
+	/// Get the properties of an Arango collection
+	pub async fn get_arango_properties(&self) -> Properties
 	{
-		let mut properties: Vec<Property> = vec![];
+		return self.arango
+			.database
+			.collection(self.name.as_str())
+			.await
+			.unwrap()
+			.properties()
+			.await
+			.unwrap();
+	}
 
-		let document_properties = &self
-			.schema
-			.iter()
-			.for_each(| property |
-			{
-				properties.push(Property {
-					name: property.name.clone(),
-					r#type: property.properties.r#type
-				});
-			});
-
-		return properties;
+	/// Get the schema of an Arango collection from the properties
+	pub async fn get_json_schema(&self) -> JSONValue
+	{
+		return from_value(
+			self
+				.get_arango_properties()
+				.await
+				.info
+				.schema
+				.unwrap()
+		)
+		.unwrap();
 	}
 
 	/// Generate a list of relations of the collection
@@ -50,17 +52,16 @@ impl Collection
 		todo!();
 	}
 
-	fn validate_properties(&self, document: JSONValue)
+	/// Validate document against schema by checking if the properties of the document
+	/// exist in the schema and if the properties are of the correct type
+	pub async fn validate_properties(&self, document: JSONValue) -> bool
 	{
-		// Validate document against schema by checking if the properties of the document
-		// exist in the schema and if the properties are of the correct type
-		document
-			.as_object()
-			.iter()
-			.for_each(| property |
-			{
-				todo!();
-			});
+		let schema = self.get_json_schema().await;
+
+		let compiled = JSONSchema::compile(&schema)
+			.expect("Schema could not be compiled");
+
+		return is_valid(&schema, &document);
 	}
 
 	pub async fn create_document(&self, document: JSONValue) -> Vec<serde_json::Value>
