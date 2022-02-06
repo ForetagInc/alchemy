@@ -1,10 +1,15 @@
-use rust_arango::Connection as ArangoConnection;
+use rust_arango::{
+	Connection as ArangoConnection,
+	AqlQuery
+};
 use rust_arango::collection::options::{
 	CreateParameters, 
 	CreateOptions as CollectionOptions
 };
 
 use anyhow::Error;
+
+use serde::{ Serialize, Deserialize };
 use serde_json::{
 	value::Value as JsonValue,
 	to_value as toJsonValue
@@ -20,6 +25,13 @@ pub struct Database
 {
 	pub connection: ArangoConnection,
 	pub database: ArangoDatabase
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AlchemyCollectionEntry
+{
+	pub name: String,
+	pub schema: JsonValue
 }
 
 impl Database
@@ -44,6 +56,24 @@ impl Database
 			connection,
 			database
 		}
+	}
+
+	pub async fn initialize(&self)
+	{
+		// Get all existing collections
+		let collections = self.database.accessible_collections().await.unwrap();
+
+		// Iterate through the collections and check if there is a alchemy collections setup
+		for collection in collections
+		{
+			if collection.name == String::from("alchemy_collections")
+			{
+				return;
+			}
+		}
+
+		// Create the collection
+		self.database.create_collection("alchemy_collections").await;
 	}
 
 	pub async fn create_collection(
@@ -78,15 +108,30 @@ impl Database
 				);
 		}
 
-		println!("{:?}", toJsonValue(schema.clone()).unwrap().to_string());
+		// println!("{:?}", toJsonValue(schema.clone()).unwrap().to_string());
 
 		// Create the collection with the schema
 		let collection_options = CollectionOptions::builder()
 			.name(name.as_str())
-			.schema(toJsonValue(schema).unwrap())
+			.schema(toJsonValue(&schema).unwrap())
 			.build();
 
 		self.database.create_collection_with_options(collection_options, CreateParameters::default()).await?;
+
+		/* Collection entry */
+		let alchemy_collection_entry = AlchemyCollectionEntry { 
+			name,
+			schema: toJsonValue(&schema.rule).unwrap()
+		};
+
+		// Create an entry in the alchemy collections
+		let alchemy_entry = AqlQuery::builder()
+			.query("INSERT @document  INTO @@collection")
+			.bind_var("@collection", "alchemy_collections")
+			.bind_var("document", toJsonValue(&alchemy_collection_entry).unwrap())
+			.build();
+
+		let _alchemy_entry_document: Vec<JsonValue> = self.database.aql_query(alchemy_entry).await.unwrap();
 
 		Ok(())
 	}
