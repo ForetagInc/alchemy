@@ -1,0 +1,9 @@
+create:
+  - name: "users"
+    required: 
+      - "firstName"
+    properties:
+      name: "firstName"
+      type: "string"
+      minLength: 4
+      maxLength: 20
