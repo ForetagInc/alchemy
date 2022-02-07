@@ -1,21 +1,20 @@
-use crate::lib::database::Database;
+use crate::lib::database::DATABASE;
+use rust_arango::Database as ArangoDatabase;
 
 pub struct Context
 {
 	pub authenticated: bool,
-	pub database: Database
+	pub database: ArangoDatabase
 }
 
 impl Context
 {
 	pub async fn new() -> Context
 	{
-		let database = Database::new().await;
-
 		Context
 		{
 			authenticated: false,
-			database
+			database: DATABASE.await.database
 		}
 	}
 }

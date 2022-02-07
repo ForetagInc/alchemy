@@ -1,6 +1,9 @@
 #![feature(derive_default_enum)]
+#![feature(const_try)]
 
 extern crate juniper;
+
+#[macro_use] extern crate derivative;
 #[macro_use] extern crate juniper_codegen;
 
 use actix_cors::Cors;
@@ -34,7 +37,7 @@ async fn main() -> std::io::Result<()>
 	HttpServer::new(|| {
 		App::new()
 			.app_data(Data::new(meta::graphql::schema()))
-			.app_data(Data::new(api::graphql::schema()))
+			// .app_data(Data::new(api::graphql::schema()))
 			.wrap(
 				Cors::default()
 					.allow_any_origin()
@@ -46,12 +49,12 @@ async fn main() -> std::io::Result<()>
 			)
 			.wrap(middleware::Compress::default())
 			.wrap(middleware::Logger::default())
-			.service(
-				web::resource("/api/graphql")
-					.route(web::post().to(api::graphql::server::graphql_api_route))
-					.route(web::get().to(api::graphql::server::graphql_api_route))
-			)
-			.service(web::resource("/api/playground").route(web::get().to(api::graphql::server::playground_api_route)))
+			// .service(
+			// 	web::resource("/api/graphql")
+			// 		.route(web::post().to(api::graphql::server::graphql_api_route))
+			// 		.route(web::get().to(api::graphql::server::graphql_api_route))
+			// )
+			// .service(web::resource("/api/playground").route(web::get().to(api::graphql::server::playground_api_route)))
 			.service(
 				web::resource("/meta/graphql")
 					.route(web::post().to(meta::graphql::server::graphql_meta_route))

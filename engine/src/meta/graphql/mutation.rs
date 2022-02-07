@@ -1,6 +1,7 @@
 use super::Context;
 
 use crate::lib::schema::SchemaDocumentProperty;
+use crate::lib::database::arango::{ create_collection, delete_collection };
 
 pub struct Mutation;
 
@@ -12,9 +13,7 @@ impl Mutation
 		#[graphql] name: String,
 		#[graphql] properties: Vec<SchemaDocumentProperty>,
 	) -> bool {
-		if let Ok(_) = context
-			.database
-			.create_collection(name, properties, None)
+		if let Ok(_) = create_collection(name, properties, None)
 			.await {
 				return true;
 			} else {
@@ -26,9 +25,7 @@ impl Mutation
 		context: &Context,
 		#[graphql] name: String
 	) -> bool {
-		if let Ok(_) = context
-			.database
-			.delete_collection(name)
+		if let Ok(_) = delete_collection(name)
 			.await {
 				return true;
 			} else {

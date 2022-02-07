@@ -1,5 +1,8 @@
 pub mod arango;
-pub use arango::Database;
 
 pub mod schema;
 pub mod collection;
+
+pub mod database;
+pub use database::ArangoDB;
+pub use database::DATABASE;
