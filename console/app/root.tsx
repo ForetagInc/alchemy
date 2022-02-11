@@ -1,3 +1,5 @@
+import TailwindStyles from "./tailwind.css";
+
 import {
   Links,
   LiveReload,
@@ -30,3 +32,10 @@ export default function App() {
     </html>
   );
 }
+
+
+export let links = () => {
+  return [
+    { rel: "stylesheet", href: TailwindStyles }
+  ];
+};
