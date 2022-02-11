@@ -1,4 +1,4 @@
-use crate::lib::database::Database;
+use crate::lib::database::DATABASE;
 use crate::lib::schema::properties::SchemaDocumentProperty;
 
 use serde_json::{
@@ -13,8 +13,6 @@ pub struct Collection
 {
 	pub name: String,
 	pub properties: Vec<SchemaDocumentProperty>,
-
-	arango: Database
 }
 
 impl Collection
@@ -22,7 +20,8 @@ impl Collection
 	/// Get the properties of an Arango collection
 	pub async fn get_arango_properties(&self) -> Properties
 	{
-		return self.arango
+		return DATABASE
+			.await
 			.database
 			.collection(self.name.as_str())
 			.await
@@ -75,8 +74,8 @@ impl Collection
 			.bind_var("document", document)
 			.build();
 
-		let result: &Vec<JSONValue> = &self
-			.arango
+		let result: Vec<JSONValue> = DATABASE
+			.await
 			.database
 			.aql_query(aql)
 			.await

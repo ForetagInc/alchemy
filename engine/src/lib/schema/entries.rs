@@ -1,3 +1,5 @@
+use crate::lib::database::DATABASE;
+
 use serde::{ Serialize, Deserialize };
 use serde_json::{
 	value::Value as JsonValue,
@@ -36,5 +38,5 @@ pub async fn create_entry(
 		.bind_var("document", toJsonValue(&alchemy_collection_entry).unwrap())
 		.build();
 
-	let _alchemy_entry_document: Vec<JsonValue> = self.database.aql_query(alchemy_entry).await.unwrap();
+	let _alchemy_entry_document: Vec<JsonValue> = DATABASE.await.database.aql_query(alchemy_entry).await.unwrap();
 }
