@@ -9,12 +9,12 @@ pub struct Context
 
 impl Context
 {
-	pub fn new() -> Context
+	pub async fn new() -> Context
 	{
 		Context
 		{
 			authenticated: false,
-			database: DATABASE.database.clone()
+			database: DATABASE.get().await.database.clone()
 		}
 	}
 }

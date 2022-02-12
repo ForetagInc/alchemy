@@ -9,7 +9,7 @@ edition = '2021'
 derivative = '2'
 lazy_static = '1.4'
 envy = '0.4'
-rust_arango = { version =  '0.1', features = ['blocking'] }
+rust_arango = '0.1'
 serde = '1'
 serde_json = '1'
 tokio = { version = '1', features = ['sync'] }
@@ -22,3 +22,4 @@ juniper = '0.15'
 juniper_actix = '0.4'
 juniper_codegen = '0.15.7'
 graphql-parser = '0.4'
+async_once = '0.2.6'

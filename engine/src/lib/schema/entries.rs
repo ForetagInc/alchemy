@@ -20,7 +20,7 @@ pub struct AlchemyCollectionEntry
 	pub count: u64
 }
 
-pub fn create_entry(
+pub async fn create_entry(
 	name: String,
 	schema_rule: Rule,
 ) {
@@ -38,5 +38,5 @@ pub fn create_entry(
 		.bind_var("document", toJsonValue(&alchemy_collection_entry).unwrap())
 		.build();
 
-	let _alchemy_entry_document: Vec<JsonValue> = DATABASE.database.aql_query(alchemy_entry).unwrap();
+	let _alchemy_entry_document: Vec<JsonValue> = DATABASE.get().await.database.aql_query(alchemy_entry).await.unwrap();
 }
