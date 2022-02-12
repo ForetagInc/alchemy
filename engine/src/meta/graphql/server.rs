@@ -17,7 +17,7 @@ pub async fn graphql_meta_route(
 	payload: ActixPayload,
 	schema: Data<Schema>
 ) -> Result<ActixResponse, ActixError> {
-	let context = Context::new().await;
+	let context = Context::new();
 	graphql_handler(&schema, &context, req, payload).await
 }
 

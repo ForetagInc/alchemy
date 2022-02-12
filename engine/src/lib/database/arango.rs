@@ -14,12 +14,12 @@ use crate::lib::database::DATABASE;
 use crate::lib::schema::SchemaDocumentProperty;
 use crate::lib::database::schema::{ DatabaseSchema, Rule, SchemaProperty };
 
-pub async fn create_collection(
+pub fn create_collection(
 	name: String,
 	properties: Vec<SchemaDocumentProperty>,
 	required: Option<Vec<String>>
 ) -> Result<(), Error> {
-	let db = DATABASE.await.database;
+	let db = DATABASE.database.clone();
 
 	// Create a schema struct to be populated with an empty JSON Map for properties
 	let mut schema = DatabaseSchema {
@@ -54,7 +54,7 @@ pub async fn create_collection(
 		.schema(toJsonValue(&schema).unwrap())
 		.build();
 
-	db.create_collection_with_options(collection_options, CreateParameters::default()).await?;
+	db.create_collection_with_options(collection_options, CreateParameters::default())?;
 
 	// /* Collection entry */
 	// let alchemy_collection_entry = AlchemyCollectionEntry { 
@@ -75,13 +75,13 @@ pub async fn create_collection(
 	Ok(())
 }
 
-pub async fn delete_collection(
+pub fn delete_collection(
 	name: String
 ) -> Result<(), Error> {
 
-	let db = DATABASE.await.database;
+	let db = DATABASE.database.clone();
 
-	db.drop_collection(name.as_str()).await?;
+	db.drop_collection(name.as_str())?;
 
 	Ok(())
 }

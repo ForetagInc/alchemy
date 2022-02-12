@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use crate::lib::CONFIG;
 
@@ -16,19 +17,17 @@ pub struct ArangoDB
 
 impl ArangoDB
 {
-	pub async fn new() -> ArangoDB
+	pub fn new() -> ArangoDB
 	{
 		let connection = ArangoConnection::establish_basic_auth(
 			&CONFIG.db_host.as_str(),
 			&CONFIG.db_user.as_str(),
 			&CONFIG.db_pass.as_str(),
 		)
-		.await
 		.unwrap();
 		
 		let database = connection
 			.db(&CONFIG.db_name.as_str())
-			.await
 			.unwrap();
 
 		ArangoDB
@@ -38,10 +37,10 @@ impl ArangoDB
 		}
 	}
 
-	pub async fn initialize(&self)
+	pub fn initialize(&self)
 	{
 		// Get all existing collections
-		let collections = self.database.accessible_collections().await.unwrap();
+		let collections = self.database.accessible_collections().unwrap();
 
 		// Iterate through the collections and check if there is a alchemy collections setup
 		for collection in collections
@@ -53,8 +52,11 @@ impl ArangoDB
 		}
 
 		// Create the collection
-		self.database.create_collection("alchemy_collections").await;
+		self.database.create_collection("alchemy_collections");
 	}
 }
 
-pub const DATABASE: Pin<Box<dyn Future<Output = ArangoDB>>> = Box::pin(ArangoDB::new());
+
+lazy_static::lazy_static! {
+    pub static ref DATABASE: Arc<ArangoDB> = Arc::new(ArangoDB::new());
+}

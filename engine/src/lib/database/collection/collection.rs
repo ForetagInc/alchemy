@@ -18,26 +18,22 @@ pub struct Collection
 impl Collection
 {
 	/// Get the properties of an Arango collection
-	pub async fn get_arango_properties(&self) -> Properties
+	pub fn get_arango_properties(&self) -> Properties
 	{
 		return DATABASE
-			.await
 			.database
 			.collection(self.name.as_str())
-			.await
 			.unwrap()
 			.properties()
-			.await
 			.unwrap();
 	}
 
 	/// Get the schema of an Arango collection from the properties
-	pub async fn get_json_schema(&self) -> JSONValue
+	pub fn get_json_schema(&self) -> JSONValue
 	{
 		return from_value(
 			self
 				.get_arango_properties()
-				.await
 				.info
 				.schema
 				.unwrap()
@@ -53,9 +49,9 @@ impl Collection
 
 	/// Validate document against schema by checking if the properties of the document
 	/// exist in the schema and if the properties are of the correct type
-	pub async fn validate_properties(&self, document: JSONValue) -> bool
+	pub fn validate_properties(&self, document: JSONValue) -> bool
 	{
-		let schema = self.get_json_schema().await;
+		let schema = self.get_json_schema();
 
 		let compiled = JSONSchema::compile(&schema)
 			.expect("Schema could not be compiled");
@@ -63,7 +59,7 @@ impl Collection
 		return is_valid(&schema, &document);
 	}
 
-	pub async fn create_document(&self, document: JSONValue) -> Vec<serde_json::Value>
+	pub fn create_document(&self, document: JSONValue) -> Vec<serde_json::Value>
 	{
 		// TODO: need to validate the document against the schema of the collection
 
@@ -75,10 +71,8 @@ impl Collection
 			.build();
 
 		let result: Vec<JSONValue> = DATABASE
-			.await
 			.database
 			.aql_query(aql)
-			.await
 			.unwrap();
 
 		return result.to_vec();

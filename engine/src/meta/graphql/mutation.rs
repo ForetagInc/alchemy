@@ -13,23 +13,21 @@ impl Mutation
 		#[graphql] name: String,
 		#[graphql] properties: Vec<SchemaDocumentProperty>,
 	) -> bool {
-		if let Ok(_) = create_collection(name, properties, None)
-			.await {
-				return true;
-			} else {
-				return false;
-			}
+		return if let Ok(_) = create_collection(name, properties, None) {
+			true
+		} else {
+			false
+		}
 	}
 
 	pub async fn delete_collection(
 		context: &Context,
 		#[graphql] name: String
 	) -> bool {
-		if let Ok(_) = delete_collection(name)
-			.await {
-				return true;
-			} else {
-				return false;
-			}
+		return if let Ok(_) = delete_collection(name) {
+			true
+		} else {
+			false
+		}
 	}
 }
