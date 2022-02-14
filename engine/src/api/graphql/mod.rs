@@ -11,4 +11,7 @@ pub use schema::Schema;
 pub mod context;
 pub use context::Context;
 
+pub mod scalars;
+
 pub mod server;
+

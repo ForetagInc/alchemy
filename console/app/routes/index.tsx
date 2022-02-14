@@ -1,7 +1,9 @@
+import { Navbar } from '~/components/Base/Navbar'
+
 export default function Index() {
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.4" }}>
-      <h1 className='text-4xl text-purple-400'>Welcome to Alchemy</h1>
+     <Navbar />
       <ul>
         <li>
           <a
