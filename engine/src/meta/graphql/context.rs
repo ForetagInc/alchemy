@@ -14,7 +14,7 @@ impl Context
 		Context
 		{
 			authenticated: false,
-			database: DATABASE.await.database
+			database: DATABASE.get().await.database.clone()
 		}
 	}
 }

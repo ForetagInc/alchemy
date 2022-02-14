@@ -19,7 +19,7 @@ pub async fn create_collection(
 	properties: Vec<SchemaDocumentProperty>,
 	required: Option<Vec<String>>
 ) -> Result<(), Error> {
-	let db = DATABASE.await.database;
+	let db = DATABASE.get().await.database.clone();
 
 	// Create a schema struct to be populated with an empty JSON Map for properties
 	let mut schema = DatabaseSchema {
@@ -79,7 +79,7 @@ pub async fn delete_collection(
 	name: String
 ) -> Result<(), Error> {
 
-	let db = DATABASE.await.database;
+	let db = DATABASE.get().await.database.clone();
 
 	db.drop_collection(name.as_str()).await?;
 

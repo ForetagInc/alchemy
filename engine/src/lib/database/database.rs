@@ -1,5 +1,5 @@
-use std::future::Future;
-use std::pin::Pin;
+use async_once::AsyncOnce;
+use std::sync::Arc;
 
 use crate::lib::CONFIG;
 
@@ -25,7 +25,7 @@ impl ArangoDB
 		)
 		.await
 		.unwrap();
-		
+
 		let database = connection
 			.db(&CONFIG.db_name.as_str())
 			.await
@@ -53,8 +53,13 @@ impl ArangoDB
 		}
 
 		// Create the collection
-		self.database.create_collection("alchemy_collections").await;
+		self.database.create_collection("alchemy_collections").await.unwrap();
 	}
 }
 
-pub const DATABASE: Pin<Box<dyn Future<Output = ArangoDB>>> = Box::pin(ArangoDB::new());
+
+lazy_static::lazy_static! {
+    pub static ref DATABASE: AsyncOnce<Arc<ArangoDB>> = AsyncOnce::new(async {
+           Arc::new(ArangoDB::new().await)
+       });
+}

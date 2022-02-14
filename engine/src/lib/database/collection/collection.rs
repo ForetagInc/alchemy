@@ -21,6 +21,7 @@ impl Collection
 	pub async fn get_arango_properties(&self) -> Properties
 	{
 		return DATABASE
+			.get()
 			.await
 			.database
 			.collection(self.name.as_str())
@@ -75,6 +76,7 @@ impl Collection
 			.build();
 
 		let result: Vec<JSONValue> = DATABASE
+			.get()
 			.await
 			.database
 			.aql_query(aql)
