@@ -5,7 +5,7 @@ use actix_web::{
 };
 
 pub async fn rest_routes(
-	req: ActixRequest
+	_req: ActixRequest
 ) -> Result<ActixResponse, ActixError> {
 	Ok(ActixResponse::Ok().body("Hello World!"))
 }

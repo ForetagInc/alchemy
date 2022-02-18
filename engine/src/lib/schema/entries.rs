@@ -40,3 +40,19 @@ pub async fn create_entry(
 
 	let _alchemy_entry_document: Vec<JsonValue> = DATABASE.get().await.database.aql_query(alchemy_entry).await.unwrap();
 }
+
+pub async fn delete_entry(
+	name: String
+) {
+	// Create an entry in the alchemy collections
+	let alchemy_entry = AqlQuery::builder()
+		.query("FOR e IN @@collection
+				FILTER e.name == @name
+				REMOVE { _key: e._key } IN @@collection
+		")
+		.bind_var("@collection", "alchemy_collections")
+		.bind_var("name", name)
+		.build();
+
+	let _alchemy_entry_document: Vec<JsonValue> = DATABASE.get().await.database.aql_query(alchemy_entry).await.unwrap();
+}

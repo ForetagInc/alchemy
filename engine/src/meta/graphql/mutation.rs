@@ -9,7 +9,7 @@ pub struct Mutation;
 impl Mutation
 {
 	pub async fn create_collection(
-		context: &Context,
+		_context: &Context,
 		#[graphql] name: String,
 		#[graphql] properties: Vec<SchemaDocumentProperty>,
 	) -> bool {
@@ -21,7 +21,7 @@ impl Mutation
 	}
 
 	pub async fn delete_collection(
-		context: &Context,
+		_context: &Context,
 		#[graphql] name: String
 	) -> bool {
 		return if let Ok(_) = delete_collection(name).await {
