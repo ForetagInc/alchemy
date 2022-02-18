@@ -3,3 +3,4 @@ pub use properties::{ SchemaDocumentProperty, SchemaDocumentPropertyValues };
 
 // pub mod generation;
 pub mod entries;
+pub use entries::AlchemyCollectionEntry;

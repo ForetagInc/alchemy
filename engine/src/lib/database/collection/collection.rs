@@ -47,10 +47,10 @@ impl Collection
 	}
 
 	/// Generate a list of relations of the collection
-	fn get_relations()
-	{
-		todo!();
-	}
+	// fn get_relations()
+	// {
+	// 	todo!();
+	// }
 
 	/// Validate document against schema by checking if the properties of the document
 	/// exist in the schema and if the properties are of the correct type
@@ -86,18 +86,18 @@ impl Collection
 		return result.to_vec();
 	}
 
-	pub async fn read_document()
-	{
-		todo!()
-	}
+	// pub async fn read_document()
+	// {
+	// 	todo!()
+	// }
 
-	pub async fn update_document()
-	{
-		todo!()
-	}
+	// pub async fn update_document()
+	// {
+	// 	todo!()
+	// }
 
-	pub async fn delete_document()
-	{
-		todo!()
-	}
+	// pub async fn delete_document()
+	// {
+	// 	todo!()
+	// }
 }

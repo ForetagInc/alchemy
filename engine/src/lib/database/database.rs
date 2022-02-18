@@ -38,23 +38,23 @@ impl ArangoDB
 		}
 	}
 
-	pub async fn initialize(&self)
-	{
-		// Get all existing collections
-		let collections = self.database.accessible_collections().await.unwrap();
+	// pub async fn initialize(&self)
+	// {
+	// 	// Get all existing collections
+	// 	let collections = self.database.accessible_collections().await.unwrap();
 
-		// Iterate through the collections and check if there is a alchemy collections setup
-		for collection in collections
-		{
-			if collection.name == String::from("alchemy_collections")
-			{
-				return;
-			}
-		}
+	// 	// Iterate through the collections and check if there is a alchemy collections setup
+	// 	for collection in collections
+	// 	{
+	// 		if collection.name == String::from("alchemy_collections")
+	// 		{
+	// 			return;
+	// 		}
+	// 	}
 
-		// Create the collection
-		self.database.create_collection("alchemy_collections").await.unwrap();
-	}
+	// 	// Create the collection
+	// 	self.database.create_collection("alchemy_collections").await.unwrap();
+	// }
 }
 
 

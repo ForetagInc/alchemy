@@ -1,6 +1,9 @@
-use rust_arango::collection::options::{
-	CreateParameters, 
-	CreateOptions as CollectionOptions
+use rust_arango::{
+	AqlQuery,
+	collection::options::{
+		CreateParameters, 
+		CreateOptions as CollectionOptions
+	}
 };
 
 use anyhow::Error;
@@ -11,7 +14,7 @@ use serde_json::{
 };
 
 use crate::lib::database::DATABASE;
-use crate::lib::schema::SchemaDocumentProperty;
+use crate::lib::schema::{ SchemaDocumentProperty, AlchemyCollectionEntry };
 use crate::lib::database::schema::{ DatabaseSchema, Rule, SchemaProperty };
 
 pub async fn create_collection(
@@ -56,21 +59,21 @@ pub async fn create_collection(
 
 	db.create_collection_with_options(collection_options, CreateParameters::default()).await?;
 
-	// /* Collection entry */
-	// let alchemy_collection_entry = AlchemyCollectionEntry { 
-	// 	name,
-	// 	schema: toJsonValue(&schema.rule).unwrap(),
-	// 	..Default::default()
-	// };
+	/* Collection entry */
+	let alchemy_collection_entry = AlchemyCollectionEntry { 
+		name,
+		schema: toJsonValue(&schema.rule).unwrap(),
+		..Default::default()
+	};
 
-	// // Create an entry in the alchemy collections
-	// let alchemy_entry = AqlQuery::builder()
-	// 	.query("INSERT @document  INTO @@collection")
-	// 	.bind_var("@collection", "alchemy_collections")
-	// 	.bind_var("document", toJsonValue(&alchemy_collection_entry).unwrap())
-	// 	.build();
+	// Create an entry in the alchemy collections
+	let alchemy_entry = AqlQuery::builder()
+		.query("INSERT @document  INTO @@collection")
+		.bind_var("@collection", "alchemy_collections")
+		.bind_var("document", toJsonValue(&alchemy_collection_entry).unwrap())
+		.build();
 
-	// let _alchemy_entry_document: Vec<JsonValue> = self.database.aql_query(alchemy_entry).await.unwrap();
+	let _alchemy_entry_document: Vec<JsonValue> = db.aql_query(alchemy_entry).await.unwrap();
 
 	Ok(())
 }
@@ -78,10 +81,21 @@ pub async fn create_collection(
 pub async fn delete_collection(
 	name: String
 ) -> Result<(), Error> {
-
 	let db = DATABASE.get().await.database.clone();
 
 	db.drop_collection(name.as_str()).await?;
+
+	// Create an entry in the alchemy collections
+	let alchemy_entry = AqlQuery::builder()
+		.query("FOR e IN @@collection
+				FILTER e.name == @name
+				REMOVE { _key: e._key } IN @@collection
+		")
+		.bind_var("@collection", "alchemy_collections")
+		.bind_var("name", name)
+		.build();
+
+	let _alchemy_entry_document: Vec<JsonValue> = db.aql_query(alchemy_entry).await.unwrap();
 
 	Ok(())
 }
