@@ -7,20 +7,16 @@ use graphql_parser::{
 use juniper::{
 	meta::{
 		Field,
-	},
-	marker::{
-		IsOutputType,
-		GraphQLObjectType
+		MetaType
 	},
 	Arguments,
-	DefaultScalarValue,
 	ExecutionResult,
 	Executor,
 	GraphQLType,
 	GraphQLValue,
 	ScalarValue,
-	graphql_object,
-	InputValue, Registry, meta::MetaType, Value
+	Registry,
+	Value
 };
 
 use serde_json::{ Value as JsonValue, Map };
@@ -162,8 +158,8 @@ impl <S> GraphQLValue<S> for Object
 	fn resolve_field(
 		&self, 
 		info: &Self::TypeInfo, 
-		field_name: &str, 
-		arguments: &Arguments<S>, 
+		field_name: &str,
+		_args: &Arguments<S>, 
 		executor: &Executor<Self::Context, S>
 	) 
 		-> ExecutionResult<S> 
@@ -187,9 +183,9 @@ impl <S> GraphQLValue<S> for Object
 						if field_value.is_f64() {
 							Ok(Value::from(field_value.as_f64().unwrap()))
 						} else if field_value.is_i64() {
-							Ok(Value::from(field_value.as_i64().unwrap()))
+							Ok(Value::from(field_value.as_i64().unwrap() as i32))
 						} else if field_value.is_u64() {
-							Ok(Value::from(field_value.as_u64().unwrap()))
+							Ok(Value::from(field_value.as_u64().unwrap() as i32))
 						} else {
 							panic!("Unexpected case")
 						}
@@ -197,7 +193,7 @@ impl <S> GraphQLValue<S> for Object
 					JsonValue::String(field_value) => {
 						Ok(Value::from(field_value.clone()))
 					},
-					JsonValue::Array(field_value) => {
+					JsonValue::Array(_field_value) => {
 						todo!()
 					},
 					JsonValue::Object(field_value) => {
@@ -211,7 +207,7 @@ impl <S> GraphQLValue<S> for Object
 						executor.resolve::<Object>(
 							&SchemaInfo {
 								schema: "".to_string(),
-								name: field_name.to_string()
+								name: field_type_name.to_string()
 							},
 							&Object {
 								fields: field_value.clone()
