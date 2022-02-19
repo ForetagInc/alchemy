@@ -1,4 +1,4 @@
-use crate::juniper::json::{Object, SchemaInfo};
+use crate::api::schema::schema::{ Object, SchemaInfo };
 use juniper::graphql_value;
 use juniper::{execute_sync, EmptyMutation, EmptySubscription, RootNode, Variables};
 
