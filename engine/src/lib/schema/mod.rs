@@ -5,5 +5,6 @@ pub use properties::{ SchemaDocumentProperty, SchemaDocumentPropertyValues };
 pub mod entries;
 pub use entries::{ 
 	create_entry,
-	delete_entry
+	delete_entry,
+	get_all_entries
 };

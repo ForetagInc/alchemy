@@ -20,6 +20,18 @@ pub struct AlchemyCollectionEntry
 	pub count: u64
 }
 
+/// Get all of the entries in the database
+pub async fn get_all_entries() -> Vec<JsonValue> {
+	let entries_query = AqlQuery::builder()
+		.query("FOR entry in alchemy_collections
+				RETURN entry")
+		.build();
+
+	let entries: Vec<JsonValue> = DATABASE.get().await.database.aql_query(entries_query).await.unwrap();
+
+	return entries;
+}
+
 pub async fn create_entry(
 	name: String,
 	schema_rule: Rule,
