@@ -1,8 +1,6 @@
-use rust_arango::{
-	collection::options::{
-		CreateParameters, 
-		CreateOptions as CollectionOptions
-	}
+use rust_arango::collection::options::{
+	CreateParameters, 
+	CreateOptions as CollectionOptions
 };
 
 use anyhow::Error;

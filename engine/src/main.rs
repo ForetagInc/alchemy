@@ -31,8 +31,6 @@ async fn main() -> std::io::Result<()>
 
 	println!("Starting Alchemy on port {:?}", app_port);
 
-	// lib::schema::generation::generate_collections().await;
-
 	// Actix server
 	HttpServer::new(|| {
 		App::new()

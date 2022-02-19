@@ -1,2 +1,2 @@
-mod schema;
-mod sort;
+pub mod schema;
+pub mod sort;
