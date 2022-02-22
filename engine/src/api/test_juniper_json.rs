@@ -50,7 +50,7 @@ fn test_sdl_type_info() {
         (),
     );
 
-    // print!("{}", schema.as_schema_language());
+    print!("{}", schema.as_schema_language());
 
     let query = r#"
         {

@@ -23,6 +23,7 @@ mod lib;
 mod meta;
 
 use lib::CONFIG;
+use lib::database::generate_sdl;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()>
@@ -30,6 +31,8 @@ async fn main() -> std::io::Result<()>
 	let app_port  = CONFIG.app_port.parse::<u16>().unwrap_or(8080);
 
 	println!("Starting Alchemy on port {:?}", app_port);
+
+	generate_sdl().await;
 
 	// Actix server
 	HttpServer::new(|| {

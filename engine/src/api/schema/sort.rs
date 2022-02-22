@@ -4,42 +4,40 @@ pub fn document<'a, T>(value: &mut Document<'a, T>)
 where
     T: Text<'a>,
 {
-	for definition in value.definitions.iter_mut() {
-		match definition {
-			Definition::SchemaDefinition(x) => schema_definition(x),
-			Definition::TypeDefinition(x) => type_definition(x),
-			Definition::TypeExtension(x) => type_extension(x),
-			Definition::DirectiveDefinition(x) => directive_definition(x),
-		}
-	}
-
-	value.definitions.sort_by_key(|f| match f 
-	{
-		Definition::SchemaDefinition(_) => "1:".to_string(),
-		Definition::DirectiveDefinition(x) => format!("2:{}", x.name.as_ref()),
-		Definition::TypeDefinition(x) => format!(
-			"3:{}",
-			match x {
-				TypeDefinition::Scalar(x) => format!("1:{}", x.name.as_ref()),
-				TypeDefinition::Enum(x) => format!("2:{}", x.name.as_ref()),
-				TypeDefinition::InputObject(x) => format!("3:{}", x.name.as_ref()),
-				TypeDefinition::Interface(x) => format!("4:{}", x.name.as_ref()),
-				TypeDefinition::Object(x) => format!("5:{}", x.name.as_ref()),
-				TypeDefinition::Union(x) => format!("6:{}", x.name.as_ref()),
-			}
-		),
-		Definition::TypeExtension(x) => format!(
-			"4:{}",
-			match x {
-				TypeExtension::Scalar(x) => format!("1:{}", x.name.as_ref()),
-				TypeExtension::Enum(x) => format!("2:{}", x.name.as_ref()),
-				TypeExtension::InputObject(x) => format!("3:{}", x.name.as_ref()),
-				TypeExtension::Interface(x) => format!("4:{}", x.name.as_ref()),
-				TypeExtension::Object(x) => format!("5:{}", x.name.as_ref()),
-				TypeExtension::Union(x) => format!("6:{}", x.name.as_ref()),
-			}
-		),
-	});
+    for definition in value.definitions.iter_mut() {
+        match definition {
+            Definition::SchemaDefinition(x) => schema_definition(x),
+            Definition::TypeDefinition(x) => type_definition(x),
+            Definition::TypeExtension(x) => type_extension(x),
+            Definition::DirectiveDefinition(x) => directive_definition(x),
+        }
+    }
+    value.definitions.sort_by_key(|f| match f {
+        Definition::SchemaDefinition(_) => "1:".to_string(),
+        Definition::DirectiveDefinition(x) => format!("2:{}", x.name.as_ref()),
+        Definition::TypeDefinition(x) => format!(
+            "3:{}",
+            match x {
+                TypeDefinition::Scalar(x) => format!("1:{}", x.name.as_ref()),
+                TypeDefinition::Enum(x) => format!("2:{}", x.name.as_ref()),
+                TypeDefinition::InputObject(x) => format!("3:{}", x.name.as_ref()),
+                TypeDefinition::Interface(x) => format!("4:{}", x.name.as_ref()),
+                TypeDefinition::Object(x) => format!("5:{}", x.name.as_ref()),
+                TypeDefinition::Union(x) => format!("6:{}", x.name.as_ref()),
+            }
+        ),
+        Definition::TypeExtension(x) => format!(
+            "4:{}",
+            match x {
+                TypeExtension::Scalar(x) => format!("1:{}", x.name.as_ref()),
+                TypeExtension::Enum(x) => format!("2:{}", x.name.as_ref()),
+                TypeExtension::InputObject(x) => format!("3:{}", x.name.as_ref()),
+                TypeExtension::Interface(x) => format!("4:{}", x.name.as_ref()),
+                TypeExtension::Object(x) => format!("5:{}", x.name.as_ref()),
+                TypeExtension::Union(x) => format!("6:{}", x.name.as_ref()),
+            }
+        ),
+    });
 }
 
 fn schema_definition<'a, T>(value: &mut SchemaDefinition<'a, T>)
