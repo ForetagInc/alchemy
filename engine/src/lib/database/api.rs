@@ -78,7 +78,7 @@ pub async fn generate_sdl()
 		}
 
 		let object = format!(
-			"type {} {{\n{}\n}}\n",
+			"type {} {{\n{}}}\n",
 			format!("{}{}", (&name[..1].to_string()).to_uppercase(), &name[1..]),
 			get_type_body(props)
 		);
