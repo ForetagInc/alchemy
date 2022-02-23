@@ -12,7 +12,7 @@ struct GraphQLProperty {
 #[derive(PartialEq)]
 pub enum ScalarType {
 	Array(Box<ScalarType>),
-	Nullable,
+	Nullable(Box<ScalarType>),
 	String,
 	Object,
 	Float,
@@ -24,14 +24,14 @@ pub enum ScalarType {
 impl From<JsonType> for ScalarType {
 	fn from(raw_type: JsonType) -> Self {
 		match raw_type {
-			JsonType::Array(a) => ScalarType::Array(Box::new((*a).into())),
+			JsonType::Array(value) => ScalarType::Array(Box::new((*value).into())),
 			JsonType::Enum => ScalarType::Enum,
 			JsonType::Boolean => ScalarType::Boolean,
 			JsonType::Integer => ScalarType::Int,
 			JsonType::Number => ScalarType::Float,
 			JsonType::Object => ScalarType::Object,
 			JsonType::String => ScalarType::String,
-			JsonType::Nullable => ScalarType::Nullable
+			JsonType::Nullable(value) => ScalarType::Nullable(Box::new((*value).into()))
 		}
 	}
 }
@@ -39,9 +39,9 @@ impl From<JsonType> for ScalarType {
 #[derive(Clone)]
 pub enum JsonType {
 	Array(Box<JsonType>),
+	Nullable(Box<JsonType>),
 	Enum,
 	Boolean,
-	Nullable,
 	Integer,
 	Number,
 	Object,
@@ -101,7 +101,7 @@ fn build_json_type(json_data: &Value) -> JsonType {
 		"number" => JsonType::Number,
 		"object" => JsonType::Object,
 		"string" => JsonType::String,
-		_ => JsonType::Nullable
+		_ => JsonType::Nullable(Box::new(JsonType::String)) // This is an unreachable condition
 	}
 }
 
@@ -109,32 +109,36 @@ fn get_type_body(props: Vec<GraphQLProperty>) -> String {
 	let mut body = String::new();
 
 	for prop in props {
-		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type)).as_str())
+		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type, false)).as_str())
 	}
 
 	body
 }
 
-fn parse_graphql_prop_type(prop_type: ScalarType) -> String {
+fn parse_graphql_prop_type(prop_type: ScalarType, nullable: bool) -> String {
+	fn with_nullablity(prop_type: &str, nullable: bool) -> String {
+		format!("{}{}", prop_type, if nullable { "" } else { "!" })
+	}
+
 	match prop_type {
-		ScalarType::String => "String!".to_string(),
-		ScalarType::Object => "String!".to_string(),
-		ScalarType::Float => "Float!".to_string(),
-		ScalarType::Int => "Int!".to_string(),
-		ScalarType::Boolean => "Boolean!".to_string(),
-		ScalarType::Array(a) => {
+		ScalarType::String => with_nullablity("String", nullable),
+		ScalarType::Object => with_nullablity("String", nullable),
+		ScalarType::Float => with_nullablity("Float", nullable),
+		ScalarType::Int => with_nullablity("Int", nullable),
+		ScalarType::Boolean => with_nullablity("Boolean", nullable),
+		ScalarType::Array(value) => {
 			let mut str_type = String::new();
 
 			str_type.push_str("[");
 			str_type.push_str(parse_graphql_prop_type(
-				*a
+				*value, nullable
 			).as_str());
-			str_type.push_str("]!");
+			str_type.push_str("]");
 
-			str_type
-		},
-		ScalarType::Nullable => {
-			"null".to_string()
+			with_nullablity(str_type.as_str(), nullable)
+		}
+		ScalarType::Nullable(value) => {
+			parse_graphql_prop_type(*value, true)
 		}
 		ScalarType::Enum => {
 			"enum".to_string()
