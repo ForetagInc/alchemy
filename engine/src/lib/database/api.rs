@@ -9,14 +9,9 @@ struct GraphQLProperty {
 	scalar_type: ScalarType
 }
 
-struct ScalarType {
-	raw: RawScalarType,
-	child: Option<RawScalarType>
-}
-
 #[derive(PartialEq)]
-pub enum RawScalarType {
-	Array,
+pub enum ScalarType {
+	Array(Box<ScalarType>),
 	Nullable,
 	String,
 	Object,
@@ -27,43 +22,23 @@ pub enum RawScalarType {
 }
 
 impl From<JsonType> for ScalarType {
-	fn from(json_type: JsonType) -> Self {
-		match json_type.raw {
-			RawJsonType::Array | RawJsonType::Enum => Self {
-				raw: json_type.raw.into(),
-				child: Some(json_type.child.expect(ERR_CHILD_NOT_DEFINED).into())
-			},
-			_ => Self {
-				raw: json_type.raw.into(),
-				child: None
-			}
-		}
-	}
-}
-
-impl From<RawJsonType> for RawScalarType {
-	fn from(raw_type: RawJsonType) -> Self {
+	fn from(raw_type: JsonType) -> Self {
 		match raw_type {
-			RawJsonType::Array => RawScalarType::Array,
-			RawJsonType::Enum => RawScalarType::Enum,
-			RawJsonType::Boolean => RawScalarType::Boolean,
-			RawJsonType::Integer => RawScalarType::Int,
-			RawJsonType::Number => RawScalarType::Float,
-			RawJsonType::Object => RawScalarType::Object,
-			RawJsonType::String => RawScalarType::String,
-			RawJsonType::Nullable => RawScalarType::Nullable
+			JsonType::Array(a) => ScalarType::Array(Box::new((*a).into())),
+			JsonType::Enum => ScalarType::Enum,
+			JsonType::Boolean => ScalarType::Boolean,
+			JsonType::Integer => ScalarType::Int,
+			JsonType::Number => ScalarType::Float,
+			JsonType::Object => ScalarType::Object,
+			JsonType::String => ScalarType::String,
+			JsonType::Nullable => ScalarType::Nullable
 		}
 	}
 }
 
-struct JsonType {
-	raw: RawJsonType,
-	child: Option<RawJsonType>
-}
-
-#[derive(Copy, Clone)]
-pub enum RawJsonType {
-	Array,
+#[derive(Clone)]
+pub enum JsonType {
+	Array(Box<JsonType>),
 	Enum,
 	Boolean,
 	Nullable,
@@ -71,21 +46,6 @@ pub enum RawJsonType {
 	Number,
 	Object,
 	String,
-}
-
-impl From<&str> for RawJsonType {
-	fn from(json_type: &str) -> Self {
-		match json_type {
-			"array" => Self::Array,
-			"enum" => Self::Enum,
-			"boolean" => Self::Boolean,
-			"integer" => Self::Integer,
-			"number" => Self::Number,
-			"object" => Self::Object,
-			"string" => Self::String,
-			_ => Self::Nullable
-		}
-	}
 }
 
 pub async fn generate_sdl()
@@ -107,11 +67,7 @@ pub async fn generate_sdl()
 		{
 			let prop_name = prop.0.clone();
 
-			let raw_json_type: RawJsonType = prop.1["type"].as_str().unwrap().into();
-			let json_type = JsonType {
-				raw: raw_json_type,
-				child: parse_json_type_child(prop.1, raw_json_type, true)
-			};
+			let json_type = build_json_type(prop.1);
 			let scalar_type: ScalarType = json_type.into();
 
 			props.push(GraphQLProperty {
@@ -134,15 +90,18 @@ pub async fn generate_sdl()
 	println!("SDL: {}", sdl);
 }
 
-fn parse_json_type_child(json_data: &Value, json_type: RawJsonType, first: bool) -> Option<RawJsonType> {
-	match json_type {
-		RawJsonType::Array => {
-			let items_type: RawJsonType = json_data["items"]["type"].as_str().unwrap().into();
+fn build_json_type(json_data: &Value) -> JsonType {
+	let data_type = json_data["type"].as_str().unwrap();
 
-			parse_json_type_child(&json_data["items"], items_type, false)
-		},
-		_ if first => None,
-		_ => Some(json_type)
+	match data_type {
+		"array" => JsonType::Array(Box::new(build_json_type(&json_data["items"]))),
+		"enum" => JsonType::Enum,
+		"boolean" => JsonType::Boolean,
+		"integer" => JsonType::Integer,
+		"number" => JsonType::Number,
+		"object" => JsonType::Object,
+		"string" => JsonType::String,
+		_ => JsonType::Nullable
 	}
 }
 
@@ -158,26 +117,26 @@ fn get_type_body(props: Vec<GraphQLProperty>) -> String {
 
 fn parse_graphql_prop_type(prop_type: ScalarType) -> String {
 	match prop_type.raw {
-		RawScalarType::String => "String!".to_string(),
-		RawScalarType::Object => "String!".to_string(),
-		RawScalarType::Float => "Float!".to_string(),
-		RawScalarType::Int => "Int!".to_string(),
-		RawScalarType::Boolean => "Boolean!".to_string(),
-		RawScalarType::Array => {
+		ScalarType::String => "String!".to_string(),
+		ScalarType::Object => "String!".to_string(),
+		ScalarType::Float => "Float!".to_string(),
+		ScalarType::Int => "Int!".to_string(),
+		ScalarType::Boolean => "Boolean!".to_string(),
+		ScalarType::Array => {
 			let mut str_type = String::new();
 
 			str_type.push_str("[");
 			str_type.push_str(parse_graphql_prop_type(
-				prop_type
+				prop_type.child
 			).as_str());
 			str_type.push_str("]!");
 
 			str_type
 		},
-		RawScalarType::Nullable => {
+		ScalarType::Nullable => {
 			"null".to_string()
 		}
-		RawScalarType::Enum => {
+		ScalarType::Enum => {
 			"enum".to_string()
 		}
 	}
