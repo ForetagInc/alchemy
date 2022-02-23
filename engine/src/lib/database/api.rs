@@ -116,18 +116,18 @@ fn get_type_body(props: Vec<GraphQLProperty>) -> String {
 }
 
 fn parse_graphql_prop_type(prop_type: ScalarType) -> String {
-	match prop_type.raw {
+	match prop_type {
 		ScalarType::String => "String!".to_string(),
 		ScalarType::Object => "String!".to_string(),
 		ScalarType::Float => "Float!".to_string(),
 		ScalarType::Int => "Int!".to_string(),
 		ScalarType::Boolean => "Boolean!".to_string(),
-		ScalarType::Array => {
+		ScalarType::Array(a) => {
 			let mut str_type = String::new();
 
 			str_type.push_str("[");
 			str_type.push_str(parse_graphql_prop_type(
-				prop_type.child
+				*a
 			).as_str());
 			str_type.push_str("]!");
 
