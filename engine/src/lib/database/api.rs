@@ -107,7 +107,7 @@ pub async fn generate_sdl()
 			let raw_json_type: RawJsonType = prop.1["type"].as_str().unwrap().into();
 			let json_type = JsonType {
 				raw: raw_json_type,
-				child: parse_json_type_child(prop.1, raw_json_type)
+				child: parse_json_type_child(prop.1, raw_json_type, true)
 			};
 			let scalar_type: ScalarType = json_type.into();
 
@@ -131,14 +131,15 @@ pub async fn generate_sdl()
 	println!("SDL: {}", sdl);
 }
 
-fn parse_json_type_child(json_data: &Value, json_type: RawJsonType) -> Option<RawJsonType> {
+fn parse_json_type_child(json_data: &Value, json_type: RawJsonType, first: bool) -> Option<RawJsonType> {
 	match json_type {
 		RawJsonType::Array => {
 			let items_type: RawJsonType = json_data["items"]["type"].as_str().unwrap().into();
 
-			parse_json_type_child(&json_data["items"], items_type)
+			parse_json_type_child(&json_data["items"], items_type, false)
 		},
-		_ => None
+		_ if first => None,
+		_ => Some(json_type)
 	}
 }
 
