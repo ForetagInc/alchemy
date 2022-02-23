@@ -54,6 +54,8 @@ pub async fn generate_sdl()
 
 	println!("----- SDL GENERATION -----");
 
+	let time = std::time::Instant::now();
+
 	for entry in entries.clone().iter()
 	{
 		let name = &entry["name"].as_str().unwrap();
@@ -87,8 +89,8 @@ pub async fn generate_sdl()
 		// println!("{:?}", entry);
 	}
 
-	println!("----- SDL GENERATED -----");
-	println!("SDL: {}", sdl);
+	println!("----- SDL GENERATED in in {:?} -----", time.elapsed());
+	println!("{}", sdl);
 }
 
 fn build_json_type(json_data: &Value) -> JsonType {
