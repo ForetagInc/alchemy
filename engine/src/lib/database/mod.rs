@@ -3,7 +3,7 @@ pub mod arango;
 pub mod schema;
 // pub mod collection;
 
-mod api;
+pub mod api;
 pub use api::generate_sdl;
 
 pub mod database;

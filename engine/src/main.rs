@@ -25,6 +25,8 @@ mod meta;
 use lib::CONFIG;
 use lib::database::generate_sdl;
 
+use crate::api::schema::create_query;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()>
 {
@@ -32,7 +34,8 @@ async fn main() -> std::io::Result<()>
 
 	println!("Starting Alchemy on port {:?}", app_port);
 
-	generate_sdl().await;
+	let map = generate_sdl().await;
+	let query = create_query(map);
 
 	// Actix server
 	HttpServer::new(|| {

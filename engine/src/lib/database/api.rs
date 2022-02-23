@@ -8,7 +8,7 @@ use crate::lib::schema::get_all_entries;
 const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
 
-struct GraphQLMap(Vec<GraphQLPrimitive>);
+pub struct GraphQLMap(pub Vec<GraphQLPrimitive>);
 
 impl std::fmt::Display for GraphQLMap {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -20,7 +20,7 @@ impl std::fmt::Display for GraphQLMap {
 	}
 }
 
-enum GraphQLPrimitive {
+pub enum GraphQLPrimitive {
 	Type(Box<GraphQLType>),
 	Enum(Box<GraphQLEnum>)
 }
@@ -35,7 +35,7 @@ impl std::fmt::Display for GraphQLPrimitive {
 					get_type_body(&t.properties)
 				);
 
-				write!(f, "{}", object)?
+				write!(f, "{}", object)
 			}
 			GraphQLPrimitive::Enum(e) => {
 				let object = format!(
@@ -44,20 +44,18 @@ impl std::fmt::Display for GraphQLPrimitive {
 					e.properties.join("\n")
 				);
 
-				write!(f, "{}", object)?
+				write!(f, "{}", object)
 			}
 		}
-
-		Ok(())
 	}
 }
 
-struct GraphQLEnum {
+pub struct GraphQLEnum {
 	name: String,
 	properties: Vec<String>,
 }
 
-struct GraphQLType {
+pub struct GraphQLType {
 	name: String,
 	properties: Vec<GraphQLProperty>,
 }
@@ -107,7 +105,7 @@ pub enum JsonType {
 	String,
 }
 
-pub async fn generate_sdl()
+pub async fn generate_sdl() -> GraphQLMap
 {
 	let entries = get_all_entries().await;
 
@@ -167,6 +165,8 @@ pub async fn generate_sdl()
 
 	println!("----- SDL GENERATED in in {:?} -----", time.elapsed());
 	println!("{}", sdl);
+
+	sdl
 }
 
 fn build_json_type(json_data: &Value) -> JsonType {
