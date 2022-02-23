@@ -136,7 +136,7 @@ fn parse_graphql_prop_type(prop_type: ScalarType, nullable: bool) -> String {
 			).as_str());
 			str_type.push_str("]");
 
-			with_nullablity(str_type.as_str(), nullable)
+			with_nullablity(str_type.as_str(), true)
 		}
 		ScalarType::Enum => {
 			"enum".to_string()
