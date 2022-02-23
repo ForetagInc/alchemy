@@ -1,3 +1,5 @@
+use std::fmt::Formatter;
+use std::ops::Deref;
 use convert_case::Casing;
 use serde_json::Value;
 
@@ -5,6 +7,60 @@ use crate::lib::schema::get_all_entries;
 
 const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
+
+struct GraphQLMap(Vec<GraphQLPrimitive>);
+
+impl std::fmt::Display for GraphQLMap {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		for primitive in self.0.iter() {
+			write!(f, "{}", primitive)?
+		}
+
+		Ok(())
+	}
+}
+
+enum GraphQLPrimitive {
+	Type(Box<GraphQLType>),
+	Enum(Box<GraphQLEnum>)
+}
+
+impl std::fmt::Display for GraphQLPrimitive {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			GraphQLPrimitive::Type(t) => {
+				let object = format!(
+					"type {} {{\n{}}}\n",
+					t.name,
+					get_type_body(&t.properties)
+				);
+
+				write!(f, "{}", object)?
+			}
+			GraphQLPrimitive::Enum(e) => {
+				let object = format!(
+					"enum {} {{\n{}\n}}\n",
+					e.name,
+					e.properties.join("\n")
+				);
+
+				write!(f, "{}", object)?
+			}
+		}
+
+		Ok(())
+	}
+}
+
+struct GraphQLEnum {
+	name: String,
+	properties: Vec<String>,
+}
+
+struct GraphQLType {
+	name: String,
+	properties: Vec<GraphQLProperty>,
+}
 
 #[derive(Default)]
 struct GraphQLProperty {
@@ -55,7 +111,7 @@ pub async fn generate_sdl()
 {
 	let entries = get_all_entries().await;
 
-	let mut sdl = String::new();
+	let mut sdl: GraphQLMap = GraphQLMap(Vec::new());
 
 	println!("----- SDL GENERATION -----");
 
@@ -63,7 +119,7 @@ pub async fn generate_sdl()
 
 	for entry in entries.clone().iter()
 	{
-		let type_name = &entry["name"].as_str().unwrap().to_case(convert_case::Case::Pascal);
+		let type_name = entry["name"].as_str().unwrap().to_case(convert_case::Case::Pascal);
 		let entry_properties = entry["schema"].get("properties").unwrap();
 		let entry_required_properties: Vec<String> = entry["schema"].get("required")
 			.unwrap().as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
@@ -84,17 +140,14 @@ pub async fn generate_sdl()
 					format!("\t{}", v.to_case(convert_case::Case::UpperSnake))
 				).collect();
 
-				let enum_type = format!("{}{}Enum", type_name, prop_name.to_case(convert_case::Case::Pascal));
+				let enum_name = format!("{}{}Enum", type_name, prop_name.to_case(convert_case::Case::Pascal));
 
-				associated_type = Some(enum_type.clone());
+				associated_type = Some(enum_name.clone());
 
-				let object = format!(
-					"enum {} {{\n{}\n}}\n",
-					enum_type,
-					enum_values.join("\n")
-				);
-
-				sdl.push_str(&object);
+				sdl.0.push(GraphQLPrimitive::Enum(Box::new(GraphQLEnum {
+					name: enum_name,
+					properties: enum_values
+				})));
 			}
 
 			props.push(GraphQLProperty {
@@ -106,14 +159,10 @@ pub async fn generate_sdl()
 			});
 		}
 
-		let object = format!(
-			"type {} {{\n{}}}\n",
-			type_name,
-			get_type_body(props)
-		);
-
-		sdl.push_str(&object);
-		// println!("{:?}", entry);
+		sdl.0.push(GraphQLPrimitive::Type(Box::new(GraphQLType {
+			name: type_name,
+			properties: props
+		})))
 	}
 
 	println!("----- SDL GENERATED in in {:?} -----", time.elapsed());
@@ -138,17 +187,17 @@ fn build_json_type(json_data: &Value) -> JsonType {
 	}
 }
 
-fn get_type_body(props: Vec<GraphQLProperty>) -> String {
+fn get_type_body(props: &Vec<GraphQLProperty>) -> String {
 	let mut body = String::new();
 
 	for prop in props {
-		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type, !prop.required, prop.associated_type)).as_str())
+		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(&prop.scalar_type, !prop.required, &prop.associated_type)).as_str())
 	}
 
 	body
 }
 
-fn parse_graphql_prop_type(prop_type: ScalarType, nullable: bool, associated_type: Option<String>) -> String {
+fn parse_graphql_prop_type(prop_type: &ScalarType, nullable: bool, associated_type: &Option<String>) -> String {
 	fn with_nullablity(prop_type: &str, nullable: bool) -> String {
 		format!("{}{}", prop_type, if nullable { "" } else { "!" })
 	}
@@ -164,14 +213,14 @@ fn parse_graphql_prop_type(prop_type: ScalarType, nullable: bool, associated_typ
 
 			str_type.push_str("[");
 			str_type.push_str(parse_graphql_prop_type(
-				*value, true, associated_type
+				value.deref(), true, associated_type
 			).as_str());
 			str_type.push_str("]");
 
 			with_nullablity(str_type.as_str(), nullable)
 		}
 		ScalarType::Enum(_) if associated_type.is_some() => {
-			with_nullablity(associated_type.unwrap().as_str(), nullable)
+			with_nullablity(associated_type.clone().unwrap().as_str(), nullable)
 		}
 		_ => panic!("{}", ERR_UNDEFINED_TYPE)
 	}
