@@ -120,11 +120,9 @@ pub async fn generate_sdl()
 		}
 
 		let object = format!(
-			r#"
-				type {} {{
-					{}
-				}}
-			"#,
+			"type {} {{\n
+				\t{}\n
+			}}\n",
 			format!("{}{}", (&name[..1].to_string()).to_uppercase(), &name[1..]),
 			get_type_body(props)
 		);
@@ -141,7 +139,7 @@ fn get_type_body(props: Vec<GraphQLProperty>) -> String {
 	let mut body = String::new();
 
 	for prop in props {
-		body.push_str(format!("{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type)).as_str())
+		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type)).as_str())
 	}
 
 	body
