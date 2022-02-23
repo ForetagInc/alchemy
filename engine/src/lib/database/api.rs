@@ -1,5 +1,8 @@
 use serde_json::Value;
+
 use crate::lib::schema::get_all_entries;
+
+const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 
 struct GraphQLProperty {
 	name: String,
@@ -28,7 +31,7 @@ impl From<JsonType> for ScalarType {
 		match json_type.raw {
 			RawJsonType::Array | RawJsonType::Enum => Self {
 				raw: json_type.raw.into(),
-				child: Some(json_type.child.expect("ERROR: Child type not defined").into())
+				child: Some(json_type.child.expect(ERR_CHILD_NOT_DEFINED).into())
 			},
 			_ => Self {
 				raw: json_type.raw.into(),
@@ -155,13 +158,21 @@ fn get_type_body(props: Vec<GraphQLProperty>) -> String {
 
 fn parse_graphql_prop_type(prop_type: ScalarType) -> String {
 	match prop_type.raw {
-		RawScalarType::String => "String",
-		RawScalarType::Object => "String",
-		RawScalarType::Float => "Float",
-		RawScalarType::Int => "Int",
-		RawScalarType::Boolean => "Boolean",
+		RawScalarType::String => "String!",
+		RawScalarType::Object => "String!",
+		RawScalarType::Float => "Float!",
+		RawScalarType::Int => "Int!",
+		RawScalarType::Boolean => "Boolean!",
 		RawScalarType::Array => {
-			"array"
+			let mut str_type = String::new();
+
+			str_type.push_str("[");
+			str_type.push_str(parse_graphql_prop_type(
+				prop_type
+			).as_str());
+			str_type.push_str("]!");
+
+			&str_type
 		}
 		RawScalarType::Nullable => {
 			"null"
