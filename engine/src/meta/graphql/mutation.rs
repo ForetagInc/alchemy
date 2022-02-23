@@ -13,7 +13,7 @@ impl Mutation
 		#[graphql] name: String,
 		#[graphql] properties: Vec<SchemaDocumentProperty>,
 	) -> bool {
-		return if let Ok(_) = create_collection(name, properties, None).await {
+		return if let Ok(_) = create_collection(name, properties).await {
 			true
 		} else {
 			false

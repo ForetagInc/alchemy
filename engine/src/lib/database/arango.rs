@@ -16,8 +16,7 @@ use crate::lib::database::schema::{ DatabaseSchema, Rule, SchemaProperty };
 
 pub async fn create_collection(
 	name: String,
-	properties: Vec<SchemaDocumentProperty>,
-	required: Option<Vec<String>>
+	properties: Vec<SchemaDocumentProperty>
 ) -> Result<(), Error> {
 	let db = DATABASE.get().await.database.clone();
 
@@ -28,7 +27,7 @@ pub async fn create_collection(
 		rule: Rule {
 			r#type: String::from("object"),
 			properties: JsonValue::Object(serde_json::Map::new()),
-			required,
+			required: Vec::new(),
 			additional_properties: false
 		}
 	};
@@ -44,6 +43,10 @@ pub async fn create_collection(
 				toJsonValue(SchemaProperty::from(property.values))
 					.unwrap(),
 			);
+
+		if property.required {
+			schema.rule.required.push(property.name);
+		}
 	}
 
 	// println!("{:?}", toJsonValue(schema.clone()).unwrap().to_string());

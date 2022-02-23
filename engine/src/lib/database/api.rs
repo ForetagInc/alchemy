@@ -6,13 +6,13 @@ const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 
 struct GraphQLProperty {
 	name: String,
-	scalar_type: ScalarType
+	scalar_type: ScalarType,
+	required: bool
 }
 
 #[derive(PartialEq)]
 pub enum ScalarType {
 	Array(Box<ScalarType>),
-	Nullable(Box<ScalarType>),
 	String,
 	Object,
 	Float,
@@ -31,7 +31,6 @@ impl From<JsonType> for ScalarType {
 			JsonType::Number => ScalarType::Float,
 			JsonType::Object => ScalarType::Object,
 			JsonType::String => ScalarType::String,
-			JsonType::Nullable(value) => ScalarType::Nullable(Box::new((*value).into()))
 		}
 	}
 }
@@ -39,7 +38,6 @@ impl From<JsonType> for ScalarType {
 #[derive(Clone)]
 pub enum JsonType {
 	Array(Box<JsonType>),
-	Nullable(Box<JsonType>),
 	Enum,
 	Boolean,
 	Integer,
@@ -59,7 +57,9 @@ pub async fn generate_sdl()
 	for entry in entries.clone().iter()
 	{
 		let name = &entry["name"].as_str().unwrap();
-		let entry_properties = &entry["schema"].get("properties").unwrap();
+		let entry_properties = entry["schema"].get("properties").unwrap();
+		let entry_required_properties: Vec<String> = entry["schema"].get("required")
+			.unwrap().as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
 
 		let mut props: Vec<GraphQLProperty> = Vec::new();
 
@@ -71,8 +71,9 @@ pub async fn generate_sdl()
 			let scalar_type: ScalarType = json_type.into();
 
 			props.push(GraphQLProperty {
-				name: prop_name,
-				scalar_type
+				name: prop_name.clone(),
+				scalar_type,
+				required: entry_required_properties.contains(&prop_name)
 			});
 		}
 
@@ -101,7 +102,7 @@ fn build_json_type(json_data: &Value) -> JsonType {
 		"number" => JsonType::Number,
 		"object" => JsonType::Object,
 		"string" => JsonType::String,
-		_ => JsonType::Nullable(Box::new(JsonType::String)) // This is an unreachable condition
+		_ => JsonType::String // This is an unreachable condition
 	}
 }
 
@@ -109,7 +110,7 @@ fn get_type_body(props: Vec<GraphQLProperty>) -> String {
 	let mut body = String::new();
 
 	for prop in props {
-		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type, false)).as_str())
+		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type, true)).as_str())
 	}
 
 	body
@@ -136,9 +137,6 @@ fn parse_graphql_prop_type(prop_type: ScalarType, nullable: bool) -> String {
 			str_type.push_str("]");
 
 			with_nullablity(str_type.as_str(), nullable)
-		}
-		ScalarType::Nullable(value) => {
-			parse_graphql_prop_type(*value, true)
 		}
 		ScalarType::Enum => {
 			"enum".to_string()

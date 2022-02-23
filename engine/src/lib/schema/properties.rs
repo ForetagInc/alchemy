@@ -12,7 +12,8 @@ use crate::lib::database::schema::{
 pub struct SchemaDocumentProperty
 {
 	pub name: String,
-	pub values: SchemaDocumentPropertyValues
+	pub values: SchemaDocumentPropertyValues,
+	pub required: bool
 }
 
 /// The property values for the collection property
