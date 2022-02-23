@@ -158,11 +158,11 @@ fn get_type_body(props: Vec<GraphQLProperty>) -> String {
 
 fn parse_graphql_prop_type(prop_type: ScalarType) -> String {
 	match prop_type.raw {
-		RawScalarType::String => "String!",
-		RawScalarType::Object => "String!",
-		RawScalarType::Float => "Float!",
-		RawScalarType::Int => "Int!",
-		RawScalarType::Boolean => "Boolean!",
+		RawScalarType::String => "String!".to_string(),
+		RawScalarType::Object => "String!".to_string(),
+		RawScalarType::Float => "Float!".to_string(),
+		RawScalarType::Int => "Int!".to_string(),
+		RawScalarType::Boolean => "Boolean!".to_string(),
 		RawScalarType::Array => {
 			let mut str_type = String::new();
 
@@ -173,12 +173,12 @@ fn parse_graphql_prop_type(prop_type: ScalarType) -> String {
 			str_type.push_str("]!");
 
 			str_type
-		}.as_str(),
+		},
 		RawScalarType::Nullable => {
-			"null"
+			"null".to_string()
 		}
 		RawScalarType::Enum => {
-			"enum"
+			"enum".to_string()
 		}
-	}.to_string()
+	}
 }
