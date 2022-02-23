@@ -172,7 +172,7 @@ fn parse_graphql_prop_type(prop_type: ScalarType) -> String {
 			).as_str());
 			str_type.push_str("]!");
 
-			&str_type
+			str_type.as_str()
 		}
 		RawScalarType::Nullable => {
 			"null"
