@@ -110,7 +110,7 @@ fn get_type_body(props: Vec<GraphQLProperty>) -> String {
 	let mut body = String::new();
 
 	for prop in props {
-		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type, true)).as_str())
+		body.push_str(format!("\t{}: {}\n", prop.name, parse_graphql_prop_type(prop.scalar_type, !prop.required)).as_str())
 	}
 
 	body
