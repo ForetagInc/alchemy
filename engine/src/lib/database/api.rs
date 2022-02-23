@@ -1,3 +1,4 @@
+use serde_json::Value;
 use crate::lib::schema::get_all_entries;
 
 struct GraphQLProperty {
@@ -25,9 +26,9 @@ pub enum RawScalarType {
 impl From<JsonType> for ScalarType {
 	fn from(json_type: JsonType) -> Self {
 		match json_type.raw {
-			RawJsonType::Array => Self {
+			RawJsonType::Array | RawJsonType::Enum => Self {
 				raw: json_type.raw.into(),
-				child: Some(json_type.child.expect("ERROR: Array child type not defined").into())
+				child: Some(json_type.child.expect("ERROR: Child type not defined").into())
 			},
 			_ => Self {
 				raw: json_type.raw.into(),
@@ -41,6 +42,7 @@ impl From<RawJsonType> for RawScalarType {
 	fn from(raw_type: RawJsonType) -> Self {
 		match raw_type {
 			RawJsonType::Array => RawScalarType::Array,
+			RawJsonType::Enum => RawScalarType::Enum,
 			RawJsonType::Boolean => RawScalarType::Boolean,
 			RawJsonType::Integer => RawScalarType::Int,
 			RawJsonType::Number => RawScalarType::Float,
@@ -56,8 +58,10 @@ struct JsonType {
 	child: Option<RawJsonType>
 }
 
+#[derive(Copy, Clone)]
 pub enum RawJsonType {
 	Array,
+	Enum,
 	Boolean,
 	Nullable,
 	Integer,
@@ -70,23 +74,13 @@ impl From<&str> for RawJsonType {
 	fn from(json_type: &str) -> Self {
 		match json_type {
 			"array" => Self::Array,
+			"enum" => Self::Enum,
 			"boolean" => Self::Boolean,
 			"integer" => Self::Integer,
 			"number" => Self::Number,
 			"object" => Self::Object,
 			"string" => Self::String,
 			_ => Self::Nullable
-		}
-	}
-}
-
-impl From<&str> for JsonType {
-	fn from(s: &str) -> Self {
-		match s {
-			_ => Self {
-				raw: s.into(),
-				child: None
-			}
 		}
 	}
 }
@@ -110,7 +104,11 @@ pub async fn generate_sdl()
 		{
 			let prop_name = prop.0.clone();
 
-			let json_type: JsonType = prop.1["type"].as_str().unwrap().into();
+			let raw_json_type: RawJsonType = prop.1["type"].as_str().unwrap().into();
+			let json_type = JsonType {
+				raw: raw_json_type,
+				child: parse_json_type_child(prop.1, raw_json_type)
+			};
 			let scalar_type: ScalarType = json_type.into();
 
 			props.push(GraphQLProperty {
@@ -131,6 +129,17 @@ pub async fn generate_sdl()
 
 	println!("----- SDL GENERATED -----");
 	println!("SDL: {}", sdl);
+}
+
+fn parse_json_type_child(json_data: &Value, json_type: RawJsonType) -> Option<RawJsonType> {
+	match json_type {
+		RawJsonType::Array => {
+			let items_type: RawJsonType = json_data["items"]["type"].as_str().unwrap().into();
+
+			parse_json_type_child(&json_data["items"], items_type)
+		},
+		_ => None
+	}
 }
 
 fn get_type_body(props: Vec<GraphQLProperty>) -> String {
