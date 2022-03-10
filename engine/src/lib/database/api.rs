@@ -8,6 +8,7 @@ use crate::lib::schema::get_all_entries;
 const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
 
+#[derive(Clone)]
 pub struct GraphQLMap(pub Vec<GraphQLPrimitive>);
 
 impl std::fmt::Display for GraphQLMap {
@@ -20,10 +21,18 @@ impl std::fmt::Display for GraphQLMap {
 	}
 }
 
+#[derive(Clone)]
 pub enum GraphQLPrimitive {
 	Type(Box<GraphQLType>),
 	Enum(Box<GraphQLEnum>)
 }
+
+#[derive(juniper::GraphQLInputObject)]
+struct Coordinate {
+	latitude: f64,
+	longitude: f64
+}
+
 
 impl std::fmt::Display for GraphQLPrimitive {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -50,25 +59,27 @@ impl std::fmt::Display for GraphQLPrimitive {
 	}
 }
 
+#[derive(Clone)]
 pub struct GraphQLEnum {
 	name: String,
 	properties: Vec<String>,
 }
 
+#[derive(Clone)]
 pub struct GraphQLType {
-	name: String,
-	properties: Vec<GraphQLProperty>,
+	pub name: String,
+	pub properties: Vec<GraphQLProperty>,
 }
 
-#[derive(Default)]
-struct GraphQLProperty {
+#[derive(Default, Clone)]
+pub struct GraphQLProperty {
 	name: String,
 	associated_type: Option<String>,
 	scalar_type: ScalarType,
 	required: bool
 }
 
-#[derive(PartialEq, Default)]
+#[derive(PartialEq, Default, Clone)]
 pub enum ScalarType {
 	Array(Box<ScalarType>),
 	Enum(Vec<String>),
@@ -117,7 +128,9 @@ pub async fn generate_sdl() -> GraphQLMap
 
 	for entry in entries.clone().iter()
 	{
-		let type_name = entry["name"].as_str().unwrap().to_case(convert_case::Case::Pascal);
+		let type_name = pluralizer::pluralize(
+			entry["name"].as_str().unwrap().to_case(convert_case::Case::Pascal).as_str(), 1, false
+		);
 		let entry_properties = entry["schema"].get("properties").unwrap();
 		let entry_required_properties: Vec<String> = entry["schema"].get("required")
 			.unwrap().as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();

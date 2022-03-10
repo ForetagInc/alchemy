@@ -25,23 +25,22 @@ mod meta;
 use lib::CONFIG;
 use lib::database::generate_sdl;
 
-use crate::api::schema::create_query;
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()>
 {
+	pluralizer::initialize();
+
 	let app_port  = CONFIG.app_port.parse::<u16>().unwrap_or(8080);
 
 	println!("Starting Alchemy on port {:?}", app_port);
 
 	let map = generate_sdl().await;
-	let query = create_query(map);
 
 	// Actix server
-	HttpServer::new(|| {
+	HttpServer::new(move || {
 		App::new()
 			.app_data(Data::new(meta::graphql::schema()))
-			// .app_data(Data::new(api::graphql::schema()))
+			.app_data(Data::new(api::schema::schema(map.clone())))
 			.wrap(
 				Cors::default()
 					.allow_any_origin()
@@ -53,12 +52,12 @@ async fn main() -> std::io::Result<()>
 			)
 			.wrap(middleware::Compress::default())
 			.wrap(middleware::Logger::default())
-			// .service(
-			// 	web::resource("/api/graphql")
-			// 		.route(web::post().to(api::graphql::server::graphql_api_route))
-			// 		.route(web::get().to(api::graphql::server::graphql_api_route))
-			// )
-			// .service(web::resource("/api/playground").route(web::get().to(api::graphql::server::playground_api_route)))
+			.service(
+				web::resource("/api/graphql")
+					.route(web::post().to(api::server::graphql_api_route))
+					.route(web::get().to(api::server::graphql_api_route))
+			)
+			.service(web::resource("/api/playground").route(web::get().to(api::server::playground_api_route)))
 			.service(
 				web::resource("/meta/graphql")
 					.route(web::post().to(meta::graphql::server::graphql_meta_route))

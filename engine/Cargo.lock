@@ -303,6 +303,7 @@ dependencies = [
  "juniper_actix",
  "juniper_codegen",
  "lazy_static",
+ "pluralizer",
  "rust_arango",
  "sentry",
  "serde",
@@ -1621,6 +1622,16 @@ name = "pkg-config"
 version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58893f751c9b0412871a09abd62ecd2a00298c6c83befa223ef98c52aef40cbe"
+
+[[package]]
+name = "pluralizer"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48b9f792eceda75e0b4febff66105639933dd775007ed1f3a13ae4911c5d97e1"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
 
 [[package]]
 name = "ppv-lite86"
