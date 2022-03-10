@@ -176,7 +176,7 @@ pub async fn generate_sdl() -> GraphQLMap
 		})))
 	}
 
-	println!("----- SDL GENERATED in in {:?} -----", time.elapsed());
+	println!("----- SDL GENERATED in {:?} -----", time.elapsed());
 	println!("{}", sdl);
 
 	sdl
