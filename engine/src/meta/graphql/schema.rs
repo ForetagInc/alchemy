@@ -1,20 +1,12 @@
 use super::Context;
 
-use super::Query;
 use super::Mutation;
+use super::Query;
 
-use juniper::{
-	RootNode,
-	EmptySubscription
-};
+use juniper::{EmptySubscription, RootNode};
 
 pub type Schema = RootNode<'static, Query, Mutation, EmptySubscription<Context>>;
 
-pub fn schema() -> Schema
-{
-	Schema::new(
-		Query,
-		Mutation,
-		EmptySubscription::<Context>::new()
-	)
+pub fn schema() -> Schema {
+    Schema::new(Query, Mutation, EmptySubscription::<Context>::new())
 }
