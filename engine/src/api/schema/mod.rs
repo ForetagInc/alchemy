@@ -1,10 +1,7 @@
 pub mod operations;
 
 use juniper::meta::{Field, MetaType};
-use juniper::{
-	EmptyMutation, EmptySubscription, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry,
-	RootNode, ScalarValue,
-};
+use juniper::{AsDynGraphQLValue, DynGraphQLValue, EmptyMutation, EmptySubscription, GraphQLType, GraphQLValue, GraphQLValueAsync, IntoResolvable, Registry, RootNode, ScalarValue};
 
 use crate::lib::database::api::GraphQLType as ApiGraphQLType;
 use crate::lib::database::api::*;
@@ -76,30 +73,48 @@ fn build_field_from_property<'r, S>(
 	registry: &mut Registry<'r, S>,
 	property: &GraphQLProperty,
 	scalar_type: &ScalarType,
+	enforce_required: bool,
 ) -> Field<'r, S>
 	where
 		S: ScalarValue,
 {
+	fn build_field<'r, T, S>(
+		registry: &mut Registry<'r, S>,
+		property: &GraphQLProperty,
+		required: bool,
+	) -> Field<'r, S>
+		where
+			S: ScalarValue + 'r,
+			T: GraphQLType<S, Context=(), TypeInfo=()>
+	{
+		let is_array = matches!(property.scalar_type, ScalarType::Array(_));
+
+		if required && !is_array {
+			registry.field::<T>(property.name.as_str(), &())
+		} else {
+			registry.field::<Option<T>>(property.name.as_str(), &())
+		}
+	}
+
 	match scalar_type {
-		ScalarType::Array(t) => build_field_from_property(registry, property, &*t),
+		ScalarType::Array(t) => {
+			let mut field = build_field_from_property(registry, property, &t, false);
 
-		ScalarType::Enum(_) if property.required => registry.field::<String>(property.name.as_str(), &()),
-		ScalarType::Enum(_) => registry.field::<Option<String>>(property.name.as_str(), &()),
+			if property.required && enforce_required {
+				field.field_type = juniper::Type::NonNullList(Box::new(field.field_type));
+			} else {
+				field.field_type = juniper::Type::List(Box::new(field.field_type));
+			}
 
-		ScalarType::String if property.required => registry.field::<String>(property.name.as_str(), &()),
-		ScalarType::String => registry.field::<Option<String>>(property.name.as_str(), &()),
+			field
+		}
 
-		ScalarType::Object if property.required => registry.field::<String>(property.name.as_str(), &()),
-		ScalarType::Object => registry.field::<Option<String>>(property.name.as_str(), &()),
-
-		ScalarType::Float if property.required => registry.field::<f64>(property.name.as_str(), &()),
-		ScalarType::Float => registry.field::<Option<f64>>(property.name.as_str(), &()),
-
-		ScalarType::Int if property.required => registry.field::<i32>(property.name.as_str(), &()),
-		ScalarType::Int => registry.field::<Option<i32>>(property.name.as_str(), &()),
-
-		ScalarType::Boolean if property.required => registry.field::<bool>(property.name.as_str(), &()),
-		ScalarType::Boolean => registry.field::<Option<bool>>(property.name.as_str(), &()),
+		ScalarType::Enum(_) => build_field::<String, S>(registry, property, property.required),
+		ScalarType::String => build_field::<String, S>(registry, property, property.required),
+		ScalarType::Object => build_field::<String, S>(registry, property, property.required),
+		ScalarType::Float => build_field::<f64, S>(registry, property, property.required),
+		ScalarType::Int => build_field::<i32, S>(registry, property, property.required),
+		ScalarType::Boolean => build_field::<bool, S>(registry, property, property.required),
 	}
 }
 
@@ -120,7 +135,7 @@ impl<S> GraphQLType<S> for QueryField
 		let mut fields = Vec::new();
 
 		for property in &info.properties {
-			let field = build_field_from_property(registry, &property, &property.scalar_type);
+			let field = build_field_from_property(registry, &property, &property.scalar_type, true);
 
 			fields.push(field);
 		}
