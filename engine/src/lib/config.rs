@@ -6,57 +6,57 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
-    pub db_host: String,
-    pub db_user: String,
-    pub db_pass: String,
-    pub db_name: String,
+	pub db_host: String,
+	pub db_user: String,
+	pub db_pass: String,
+	pub db_name: String,
 
-    pub rust_env: String,
+	pub rust_env: String,
 
-    pub app_port: String,
+	pub app_port: String,
 }
 
 impl Config {
-    pub fn is_production(&self) -> bool {
-        self.rust_env == "production"
-    }
+	pub fn is_production(&self) -> bool {
+		self.rust_env == "production"
+	}
 
-    pub fn is_development(&self) -> bool {
-        !self.is_production()
-    }
+	pub fn is_development(&self) -> bool {
+		!self.is_production()
+	}
 }
 
 fn load_config() -> Result<Config> {
-    let env = envy::from_env::<Config>();
+	let env = envy::from_env::<Config>();
 
-    match env {
-        Ok(config) => Ok(config),
-        Err(_) => {
-            // Load from .env file
-            let mut file = File::open(".env")?;
-            let mut content = String::new();
+	match env {
+		Ok(config) => Ok(config),
+		Err(_) => {
+			// Load from .env file
+			let mut file = File::open(".env")?;
+			let mut content = String::new();
 
-            file.read_to_string(&mut content)?;
+			file.read_to_string(&mut content)?;
 
-            for line in content.lines() {
-                let pair = line.split('=').collect::<Vec<&str>>();
+			for line in content.lines() {
+				let pair = line.split('=').collect::<Vec<&str>>();
 
-                let (key, value) = match &pair[..] {
-                    &[key, value] => (key, value),
-                    _ => panic!("Expected env variable pairs, got {}", content),
-                };
+				let (key, value) = match &pair[..] {
+					&[key, value] => (key, value),
+					_ => panic!("Expected env variable pairs, got {}", content),
+				};
 
-                std::env::set_var(key, value);
-            }
+				std::env::set_var(key, value);
+			}
 
-            match envy::from_env::<Config>() {
-                Ok(config) => Ok(config),
-                Err(e) => panic!("Failed to read the config from env: {}", e),
-            }
-        }
-    }
+			match envy::from_env::<Config>() {
+				Ok(config) => Ok(config),
+				Err(e) => panic!("Failed to read the config from env: {}", e),
+			}
+		}
+	}
 }
 
 lazy_static! {
-    pub static ref CONFIG: Config = load_config().unwrap();
+	pub static ref CONFIG: Config = load_config().unwrap();
 }

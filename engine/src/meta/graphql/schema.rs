@@ -8,5 +8,5 @@ use juniper::{EmptySubscription, RootNode};
 pub type Schema = RootNode<'static, Query, Mutation, EmptySubscription<Context>>;
 
 pub fn schema() -> Schema {
-    Schema::new(Query, Mutation, EmptySubscription::<Context>::new())
+	Schema::new(Query, Mutation, EmptySubscription::<Context>::new())
 }

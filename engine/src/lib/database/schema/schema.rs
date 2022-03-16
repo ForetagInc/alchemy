@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DatabaseSchema {
-    pub message: String,
-    pub level: String,
-    pub rule: Rule,
+	pub message: String,
+	pub level: String,
+	pub rule: Rule,
 }

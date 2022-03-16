@@ -1,7 +1,11 @@
 pub mod operations;
 
 use juniper::meta::{Field, MetaType};
-use juniper::{AsDynGraphQLValue, DynGraphQLValue, EmptyMutation, EmptySubscription, GraphQLType, GraphQLValue, GraphQLValueAsync, IntoResolvable, Registry, RootNode, ScalarValue};
+use juniper::{
+	Arguments, BoxFuture, DefaultScalarValue, EmptyMutation, EmptySubscription, ExecutionResult,
+	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue
+};
+use crate::api::schema::operations::OPERATION_REGISTRY;
 
 use crate::lib::database::api::GraphQLType as ApiGraphQLType;
 use crate::lib::database::api::*;
@@ -31,21 +35,27 @@ pub fn schema(map: GraphQLMap) -> Schema {
 pub struct Query;
 
 impl<S> GraphQLType<S> for Query
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	fn name(_: &Self::TypeInfo) -> Option<&str> {
 		Some("Query")
 	}
 
 	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
-		where
-			S: 'r,
+	where
+		S: 'r,
 	{
 		let mut queries = Vec::new();
 
 		for gql_type in info {
-			queries.push(registry.field::<QueryField>("getAccount", gql_type));
+			let registered_operations = OPERATION_REGISTRY.lock().unwrap().register_entity(&gql_type.name);
+
+			for registered_operation in registered_operations {
+				if let Some(operation) = registered_operation {
+					queries.push(registry.field::<QueryField>(operation.as_str(), gql_type));
+				}
+			}
 		}
 
 		registry
@@ -55,8 +65,8 @@ impl<S> GraphQLType<S> for Query
 }
 
 impl<S> GraphQLValue<S> for Query
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	type Context = ();
 	type TypeInfo = Vec<ApiGraphQLType>;
@@ -66,8 +76,21 @@ impl<S> GraphQLValue<S> for Query
 	}
 }
 
-impl GraphQLValueAsync for Query
-{}
+impl GraphQLValueAsync for Query {
+	fn resolve_field_async<'b>(
+		&'b self,
+		_info: &'b Self::TypeInfo,
+		_field_name: &'b str,
+		_arguments: &'b Arguments<DefaultScalarValue>,
+		_executor: &'b Executor<Self::Context, DefaultScalarValue>,
+	) -> BoxFuture<'b, ExecutionResult<DefaultScalarValue>> {
+
+
+		println!("{} {:?}", _field_name, _arguments);
+
+		todo!()
+	}
+}
 
 fn build_field_from_property<'r, S>(
 	registry: &mut Registry<'r, S>,
@@ -75,17 +98,17 @@ fn build_field_from_property<'r, S>(
 	scalar_type: &ScalarType,
 	enforce_required: bool,
 ) -> Field<'r, S>
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	fn build_field<'r, T, S>(
 		registry: &mut Registry<'r, S>,
 		property: &GraphQLProperty,
 		required: bool,
 	) -> Field<'r, S>
-		where
-			S: ScalarValue + 'r,
-			T: GraphQLType<S, Context=(), TypeInfo=()>
+	where
+		S: ScalarValue + 'r,
+		T: GraphQLType<S, Context = (), TypeInfo = ()>,
 	{
 		let is_array = matches!(property.scalar_type, ScalarType::Array(_));
 
@@ -121,16 +144,16 @@ fn build_field_from_property<'r, S>(
 pub struct QueryField;
 
 impl<S> GraphQLType<S> for QueryField
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	fn name(info: &Self::TypeInfo) -> Option<&str> {
 		Some(info.name.as_str())
 	}
 
 	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
-		where
-			S: 'r,
+	where
+		S: 'r,
 	{
 		let mut fields = Vec::new();
 
@@ -147,8 +170,8 @@ impl<S> GraphQLType<S> for QueryField
 }
 
 impl<S> GraphQLValue<S> for QueryField
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	type Context = ();
 	type TypeInfo = ApiGraphQLType;
