@@ -7,18 +7,18 @@ use juniper::{
 	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
 };
 
-use crate::lib::database::api::GraphQLType as ApiGraphQLType;
+use crate::lib::database::api::DbEntity as ApiGraphQLType;
 use crate::lib::database::api::*;
 
 pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
-pub fn schema(map: GraphQLMap) -> Schema {
+pub fn schema(map: DbMap) -> Schema {
 	let mut types: Vec<ApiGraphQLType> = Vec::new();
 
 	for p in map.0 {
 		match p {
-			GraphQLPrimitive::Type(t) => types.push(*t),
-			GraphQLPrimitive::Enum(_) => {}
+			DbPrimitive::Entity(t) => types.push(*t),
+			DbPrimitive::Enum(_) => {}
 		}
 	}
 
@@ -97,8 +97,8 @@ impl GraphQLValueAsync for Query {
 
 fn build_field_from_property<'r, S>(
 	registry: &mut Registry<'r, S>,
-	property: &GraphQLProperty,
-	scalar_type: &ScalarType,
+	property: &DbProperty,
+	scalar_type: &DbScalarType,
 	enforce_required: bool,
 ) -> Field<'r, S>
 where
@@ -106,14 +106,14 @@ where
 {
 	fn build_field<'r, T, S>(
 		registry: &mut Registry<'r, S>,
-		property: &GraphQLProperty,
+		property: &DbProperty,
 		required: bool,
 	) -> Field<'r, S>
 	where
 		S: ScalarValue + 'r,
 		T: GraphQLType<S, Context = (), TypeInfo = ()>,
 	{
-		let is_array = matches!(property.scalar_type, ScalarType::Array(_));
+		let is_array = matches!(property.scalar_type, DbScalarType::Array(_));
 
 		if required && !is_array {
 			registry.field::<T>(property.name.as_str(), &())
@@ -123,7 +123,7 @@ where
 	}
 
 	match scalar_type {
-		ScalarType::Array(t) => {
+		DbScalarType::Array(t) => {
 			let mut field = build_field_from_property(registry, property, &t, false);
 
 			if property.required && enforce_required {
@@ -135,12 +135,12 @@ where
 			field
 		}
 
-		ScalarType::Enum(_) => build_field::<String, S>(registry, property, property.required),
-		ScalarType::String => build_field::<String, S>(registry, property, property.required),
-		ScalarType::Object => build_field::<String, S>(registry, property, property.required),
-		ScalarType::Float => build_field::<f64, S>(registry, property, property.required),
-		ScalarType::Int => build_field::<i32, S>(registry, property, property.required),
-		ScalarType::Boolean => build_field::<bool, S>(registry, property, property.required),
+		DbScalarType::Enum(_) => build_field::<String, S>(registry, property, property.required),
+		DbScalarType::String => build_field::<String, S>(registry, property, property.required),
+		DbScalarType::Object => build_field::<String, S>(registry, property, property.required),
+		DbScalarType::Float => build_field::<f64, S>(registry, property, property.required),
+		DbScalarType::Int => build_field::<i32, S>(registry, property, property.required),
+		DbScalarType::Boolean => build_field::<bool, S>(registry, property, property.required),
 	}
 }
 

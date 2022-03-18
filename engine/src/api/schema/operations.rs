@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use crate::lib::database::api::GraphQLType;
+use crate::lib::database::api::DbEntity;
 
 type FutureType<'b> = BoxFuture<'b, ExecutionResult<DefaultScalarValue>>;
 
@@ -30,7 +30,7 @@ impl OperationRegistry {
 			.map(|o| o.call(arguments, executor))
 	}
 
-	pub fn register_entity(&mut self, graphql_type: GraphQLType) -> Vec<Option<String>> {
+	pub fn register_entity(&mut self, graphql_type: DbEntity) -> Vec<Option<String>> {
 		vec![
 			self.register(Get(graphql_type))
 		]
@@ -69,7 +69,7 @@ pub trait Operation {
 	}
 }
 
-pub struct Get(GraphQLType);
+pub struct Get(DbEntity);
 
 impl Operation for Get {
 	fn call<'b>(

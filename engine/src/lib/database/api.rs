@@ -9,9 +9,9 @@ const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
 
 #[derive(Clone)]
-pub struct GraphQLMap(pub Vec<GraphQLPrimitive>);
+pub struct DbMap(pub Vec<DbPrimitive>);
 
-impl std::fmt::Display for GraphQLMap {
+impl std::fmt::Display for DbMap {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		for primitive in self.0.iter() {
 			write!(f, "{}", primitive)?
@@ -22,26 +22,20 @@ impl std::fmt::Display for GraphQLMap {
 }
 
 #[derive(Clone)]
-pub enum GraphQLPrimitive {
-	Type(Box<GraphQLType>),
-	Enum(Box<GraphQLEnum>),
+pub enum DbPrimitive {
+	Entity(Box<DbEntity>),
+	Enum(Box<DbEnum>),
 }
 
-#[derive(juniper::GraphQLInputObject)]
-struct Coordinate {
-	latitude: f64,
-	longitude: f64,
-}
-
-impl std::fmt::Display for GraphQLPrimitive {
+impl std::fmt::Display for DbPrimitive {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
-			GraphQLPrimitive::Type(t) => {
+			DbPrimitive::Entity(t) => {
 				let object = format!("type {} {{\n{}}}\n", t.name, get_type_body(&t.properties));
 
 				write!(f, "{}", object)
 			}
-			GraphQLPrimitive::Enum(e) => {
+			DbPrimitive::Enum(e) => {
 				let object = format!("enum {} {{\n{}\n}}\n", e.name, e.properties.join("\n"));
 
 				write!(f, "{}", object)
@@ -51,28 +45,28 @@ impl std::fmt::Display for GraphQLPrimitive {
 }
 
 #[derive(Clone)]
-pub struct GraphQLEnum {
+pub struct DbEnum {
 	name: String,
 	properties: Vec<String>,
 }
 
 #[derive(Clone)]
-pub struct GraphQLType {
+pub struct DbEntity {
 	pub name: String,
-	pub properties: Vec<GraphQLProperty>,
+	pub properties: Vec<DbProperty>,
 }
 
 #[derive(Default, Clone)]
-pub struct GraphQLProperty {
+pub struct DbProperty {
 	pub name: String,
 	pub associated_type: Option<String>,
-	pub scalar_type: ScalarType,
+	pub scalar_type: DbScalarType,
 	pub required: bool,
 }
 
 #[derive(PartialEq, Default, Clone)]
-pub enum ScalarType {
-	Array(Box<ScalarType>),
+pub enum DbScalarType {
+	Array(Box<DbScalarType>),
 	Enum(Vec<String>),
 	#[default]
 	String,
@@ -82,16 +76,16 @@ pub enum ScalarType {
 	Boolean,
 }
 
-impl From<JsonType> for ScalarType {
+impl From<JsonType> for DbScalarType {
 	fn from(raw_type: JsonType) -> Self {
 		match raw_type {
-			JsonType::Array(value) => ScalarType::Array(Box::new((*value).into())),
-			JsonType::Enum(values) => ScalarType::Enum(values),
-			JsonType::Boolean => ScalarType::Boolean,
-			JsonType::Integer => ScalarType::Int,
-			JsonType::Number => ScalarType::Float,
-			JsonType::Object => ScalarType::Object,
-			JsonType::String => ScalarType::String,
+			JsonType::Array(value) => DbScalarType::Array(Box::new((*value).into())),
+			JsonType::Enum(values) => DbScalarType::Enum(values),
+			JsonType::Boolean => DbScalarType::Boolean,
+			JsonType::Integer => DbScalarType::Int,
+			JsonType::Number => DbScalarType::Float,
+			JsonType::Object => DbScalarType::Object,
+			JsonType::String => DbScalarType::String,
 		}
 	}
 }
@@ -107,10 +101,10 @@ pub enum JsonType {
 	String,
 }
 
-pub async fn generate_sdl() -> GraphQLMap {
+pub async fn generate_sdl() -> DbMap {
 	let entries = get_all_entries().await;
 
-	let mut sdl: GraphQLMap = GraphQLMap(Vec::new());
+	let mut sdl: DbMap = DbMap(Vec::new());
 
 	println!("----- SDL GENERATION -----");
 
@@ -136,13 +130,13 @@ pub async fn generate_sdl() -> GraphQLMap {
 			.map(|v| v.as_str().unwrap().to_string())
 			.collect();
 
-		let mut props: Vec<GraphQLProperty> = Vec::new();
+		let mut props: Vec<DbProperty> = Vec::new();
 
 		for prop in entry_properties.as_object().unwrap().iter() {
 			let prop_name = prop.0.clone();
 
 			let json_type = build_json_type(prop.1);
-			let scalar_type: ScalarType = json_type.clone().into();
+			let scalar_type: DbScalarType = json_type.clone().into();
 
 			let mut associated_type: Option<String> = None;
 
@@ -160,13 +154,13 @@ pub async fn generate_sdl() -> GraphQLMap {
 
 				associated_type = Some(enum_name.clone());
 
-				sdl.0.push(GraphQLPrimitive::Enum(Box::new(GraphQLEnum {
+				sdl.0.push(DbPrimitive::Enum(Box::new(DbEnum {
 					name: enum_name,
 					properties: enum_values,
 				})));
 			}
 
-			props.push(GraphQLProperty {
+			props.push(DbProperty {
 				name: prop_name.clone(),
 				associated_type,
 				scalar_type,
@@ -175,7 +169,7 @@ pub async fn generate_sdl() -> GraphQLMap {
 			});
 		}
 
-		sdl.0.push(GraphQLPrimitive::Type(Box::new(GraphQLType {
+		sdl.0.push(DbPrimitive::Entity(Box::new(DbEntity {
 			name: type_name,
 			properties: props,
 		})))
@@ -210,7 +204,7 @@ fn build_json_type(json_data: &Value) -> JsonType {
 	}
 }
 
-fn get_type_body(props: &Vec<GraphQLProperty>) -> String {
+fn get_type_body(props: &Vec<DbProperty>) -> String {
 	let mut body = String::new();
 
 	for prop in props {
@@ -228,7 +222,7 @@ fn get_type_body(props: &Vec<GraphQLProperty>) -> String {
 }
 
 fn parse_graphql_prop_type(
-	prop_type: &ScalarType,
+	prop_type: &DbScalarType,
 	nullable: bool,
 	associated_type: &Option<String>,
 ) -> String {
@@ -237,12 +231,12 @@ fn parse_graphql_prop_type(
 	}
 
 	match prop_type {
-		ScalarType::String => with_nullablity("String", nullable),
-		ScalarType::Object => with_nullablity("String", nullable),
-		ScalarType::Float => with_nullablity("Float", nullable),
-		ScalarType::Int => with_nullablity("Int", nullable),
-		ScalarType::Boolean => with_nullablity("Boolean", nullable),
-		ScalarType::Array(value) => {
+		DbScalarType::String => with_nullablity("String", nullable),
+		DbScalarType::Object => with_nullablity("String", nullable),
+		DbScalarType::Float => with_nullablity("Float", nullable),
+		DbScalarType::Int => with_nullablity("Int", nullable),
+		DbScalarType::Boolean => with_nullablity("Boolean", nullable),
+		DbScalarType::Array(value) => {
 			let mut str_type = String::new();
 
 			str_type.push_str("[");
@@ -252,7 +246,7 @@ fn parse_graphql_prop_type(
 
 			with_nullablity(str_type.as_str(), nullable)
 		}
-		ScalarType::Enum(_) if associated_type.is_some() => {
+		DbScalarType::Enum(_) if associated_type.is_some() => {
 			with_nullablity(associated_type.clone().unwrap().as_str(), nullable)
 		}
 		_ => panic!("{}", ERR_UNDEFINED_TYPE),
