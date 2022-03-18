@@ -1,73 +1,96 @@
+use convert_case::Casing;
+use juniper::{Arguments, BoxFuture, DefaultScalarValue, ExecutionResult, Executor};
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use convert_case::Casing;
-use lazy_static::lazy_static;
-use serde_json::Value as JsonValue;
 
 use crate::lib::database::api::GraphQLType;
 
-type OperationClosure = fn(&GraphQLType) -> JsonValue;
+type FutureType<'b> = BoxFuture<'b, ExecutionResult<DefaultScalarValue>>;
 
-pub struct OperationRegistry
-{
-	operations: HashMap<String, OperationClosure>,
+pub struct OperationRegistry {
+	operations: HashMap<String, Box<dyn Operation + Send>>,
 }
 
-impl OperationRegistry
-{
+impl OperationRegistry {
 	pub fn new() -> OperationRegistry {
 		OperationRegistry {
-			operations: HashMap::new()
+			operations: HashMap::new(),
 		}
 	}
 
-	pub fn register_entity(&mut self, type_name: &str) -> Vec<Option<String>>
-	{
+	pub fn call_by_key<'b>(
+		&self,
+		key: &str,
+		arguments: &Arguments<DefaultScalarValue>,
+		executor: &'b Executor<(), DefaultScalarValue>,
+	) -> Option<FutureType<'b>> {
+		self.operations
+			.get(key)
+			.map(|o| o.call(arguments, executor))
+	}
+
+	pub fn register_entity(&mut self, graphql_type: GraphQLType) -> Vec<Option<String>> {
 		vec![
-			self.register::<Get>(type_name)
+			self.register(Get(graphql_type))
 		]
 	}
 
-	fn register<T>(&mut self, type_name: &str) -> Option<String>
-		where
-			T: Operation
+	fn register<T: 'static>(&mut self, operation: T) -> Option<String>
+	where
+		T: Operation + Send,
 	{
-		let key = T::get_operation_name(type_name);
+		let k = operation.get_operation_name();
 
-		self.operations.insert(key.clone(), T::call as OperationClosure).map(|_| key)
+		self.operations
+			.insert(k.clone(), Box::new(operation))
+			.map(|_| k)
 	}
 }
 
 pub trait Operation {
-	fn call(graphql_type: &GraphQLType) -> JsonValue;
+	fn call<'b>(
+		&self,
+		arguments: &Arguments<DefaultScalarValue>,
+		executor: &'b Executor<(), DefaultScalarValue>,
+	) -> FutureType<'b>;
 
-	fn get_collection_name(type_name: &str) -> String {
+	fn get_operation_name(&self) -> String;
+
+	fn get_collection_name(type_name: &str) -> String
+	where
+		Self: Sized,
+	{
 		pluralizer::pluralize(
 			type_name.to_case(convert_case::Case::Snake).as_str(),
 			2,
 			false,
 		)
 	}
-
-	fn get_operation_name(type_name: &str) -> String;
 }
 
-pub struct Get;
+pub struct Get(GraphQLType);
 
 impl Operation for Get {
-	fn call(graphql_type: &GraphQLType) -> JsonValue {
-		let collection = Self::get_collection_name(&graphql_type.name);
+	fn call<'b>(
+		&self,
+		arguments: &Arguments<DefaultScalarValue>,
+		executor: &'b Executor<(), DefaultScalarValue>,
+	) -> FutureType<'b> {
+		let collection = Self::get_collection_name(&self.0.name);
 
-		println!("{}", collection);
+		Box::pin(async move {
+			println!("{}", collection);
 
-		todo!()
+			executor.resolve_with_ctx(&(), &"a")
+		})
 	}
 
-	fn get_operation_name(type_name: &str) -> String {
+	fn get_operation_name(&self) -> String {
 		format!(
 			"get{}",
 			pluralizer::pluralize(
-				type_name.to_case(convert_case::Case::Pascal).as_str(),
+				self.0.name.to_case(convert_case::Case::Pascal).as_str(),
 				1,
 				false,
 			)
@@ -76,5 +99,6 @@ impl Operation for Get {
 }
 
 lazy_static! {
-	pub static ref OPERATION_REGISTRY: Mutex<OperationRegistry> = Mutex::new(OperationRegistry::new());
+	pub static ref OPERATION_REGISTRY: Mutex<OperationRegistry> =
+		Mutex::new(OperationRegistry::new());
 }

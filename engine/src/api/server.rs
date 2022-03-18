@@ -11,7 +11,7 @@ pub async fn graphql_api_route(
 	req: ActixRequest,
 	payload: ActixPayload,
 	schema: Data<Schema>,
-) -> Result<ActixResponse, ActixError> {	
+) -> Result<ActixResponse, ActixError> {
 	graphql_handler(&schema, &(), req, payload).await
 }
 

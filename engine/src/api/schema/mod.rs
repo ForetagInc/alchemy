@@ -1,11 +1,11 @@
 pub mod operations;
 
+use crate::api::schema::operations::OPERATION_REGISTRY;
 use juniper::meta::{Field, MetaType};
 use juniper::{
 	Arguments, BoxFuture, DefaultScalarValue, EmptyMutation, EmptySubscription, ExecutionResult,
-	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue
+	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
 };
-use crate::api::schema::operations::OPERATION_REGISTRY;
 
 use crate::lib::database::api::GraphQLType as ApiGraphQLType;
 use crate::lib::database::api::*;
@@ -49,7 +49,10 @@ where
 		let mut queries = Vec::new();
 
 		for gql_type in info {
-			let registered_operations = OPERATION_REGISTRY.lock().unwrap().register_entity(&gql_type.name);
+			let registered_operations = OPERATION_REGISTRY
+				.lock()
+				.unwrap()
+				.register_entity(gql_type.clone());
 
 			for registered_operation in registered_operations {
 				if let Some(operation) = registered_operation {
@@ -80,15 +83,15 @@ impl GraphQLValueAsync for Query {
 	fn resolve_field_async<'b>(
 		&'b self,
 		_info: &'b Self::TypeInfo,
-		_field_name: &'b str,
-		_arguments: &'b Arguments<DefaultScalarValue>,
-		_executor: &'b Executor<Self::Context, DefaultScalarValue>,
+		field_name: &'b str,
+		arguments: &'b Arguments<DefaultScalarValue>,
+		executor: &'b Executor<Self::Context, DefaultScalarValue>,
 	) -> BoxFuture<'b, ExecutionResult<DefaultScalarValue>> {
-
-
-		println!("{} {:?}", _field_name, _arguments);
-
-		todo!()
+		OPERATION_REGISTRY
+			.lock()
+			.unwrap()
+			.call_by_key(field_name, arguments, executor)
+			.unwrap()
 	}
 }
 
