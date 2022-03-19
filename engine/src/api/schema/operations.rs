@@ -2,14 +2,14 @@ use convert_case::Casing;
 use juniper::{Arguments, BoxFuture, DefaultScalarValue, ExecutionResult, Executor};
 use std::collections::HashMap;
 use std::sync::Arc;
+use crate::api::schema::fields::QueryField;
 
-use crate::api::schema::QueryField;
 use crate::lib::database::api::DbEntity;
 
 type FutureType<'b> = BoxFuture<'b, ExecutionResult<DefaultScalarValue>>;
 
 pub struct OperationRegistry {
-	operations: HashMap<String, Box<dyn Operation + Send + Sync>>,
+	operations: HashMap<String, Box<dyn Operation>>,
 }
 
 impl OperationRegistry {
@@ -30,7 +30,7 @@ impl OperationRegistry {
 			.map(|o| o.call(arguments, executor))
 	}
 
-	pub fn get_operations(&self) -> &HashMap<String, Box<dyn Operation + Send + Sync>> {
+	pub fn get_operations(&self) -> &HashMap<String, Box<dyn Operation>> {
 		&self.operations
 	}
 
@@ -40,7 +40,7 @@ impl OperationRegistry {
 
 	fn register<T: 'static>(&mut self, operation: T) -> String
 	where
-		T: Operation + Send + Sync,
+		T: Operation,
 	{
 		let k = operation.get_operation_name();
 
@@ -50,7 +50,9 @@ impl OperationRegistry {
 	}
 }
 
-pub trait Operation {
+pub trait Operation
+	where Self: Send + Sync
+{
 	fn call<'b>(
 		&self,
 		arguments: &Arguments<DefaultScalarValue>,
