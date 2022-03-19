@@ -1,4 +1,5 @@
 pub mod operations;
+pub mod queries;
 
 use crate::api::schema::operations::OperationRegistry;
 use juniper::meta::{Field, MetaType};
@@ -7,21 +8,17 @@ use juniper::{
 	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::lib::database::api::*;
 
 pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
 pub fn schema(map: DbMap) -> Schema {
-	let mut entities: Vec<Arc<DbEntity>> = Vec::new();
 	let mut operation_registry = OperationRegistry::new();
 
 	for p in map.0 {
 		match p {
 			DbPrimitive::Entity(t) => {
-				entities.push(t.clone());
-
 				operation_registry.register_entity(t);
 			}
 			DbPrimitive::Enum(_) => {}
@@ -33,7 +30,6 @@ pub fn schema(map: DbMap) -> Schema {
 		EmptyMutation::new(),
 		EmptySubscription::new(),
 		QueryData {
-			entities,
 			operation_registry,
 		},
 		(),
@@ -42,7 +38,6 @@ pub fn schema(map: DbMap) -> Schema {
 }
 
 pub struct QueryData {
-	entities: Vec<Arc<DbEntity>>,
 	operation_registry: OperationRegistry,
 }
 
@@ -62,15 +57,11 @@ where
 	{
 		let mut queries = Vec::new();
 
-		for entity in &info.entities {
-			if let Some(operations) = info
-				.operation_registry
-				.get_operations_by_entity_name(entity.name.as_str())
-			{
-				for operation in operations {
-					queries.push(registry.field::<QueryField<S>>(operation, &entity));
-				}
-			}
+		for (name, operation) in info.operation_registry.get_operations() {
+			let field = registry.field::<QueryField<S>>(name, &operation.get_entity());
+
+
+			queries.push(field);
 		}
 
 		registry
