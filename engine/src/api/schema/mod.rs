@@ -1,23 +1,31 @@
 pub mod operations;
 
-use crate::api::schema::operations::OPERATION_REGISTRY;
+use crate::api::schema::operations::OperationRegistry;
 use juniper::meta::{Field, MetaType};
 use juniper::{
 	Arguments, BoxFuture, DefaultScalarValue, EmptyMutation, EmptySubscription, ExecutionResult,
 	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
+	Selection,
 };
+use std::borrow::BorrowMut;
+use std::collections::HashMap;
+use std::sync::Arc;
 
-use crate::lib::database::api::DbEntity as ApiGraphQLType;
 use crate::lib::database::api::*;
 
 pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
 pub fn schema(map: DbMap) -> Schema {
-	let mut types: Vec<ApiGraphQLType> = Vec::new();
+	let mut entities: Vec<DbEntity> = Vec::new();
+	let mut operation_registry = OperationRegistry::new();
 
 	for p in map.0 {
 		match p {
-			DbPrimitive::Entity(t) => types.push(*t),
+			DbPrimitive::Entity(t) => {
+				entities.push(*t.clone());
+
+				operation_registry.register_entity(*t);
+			}
 			DbPrimitive::Enum(_) => {}
 		}
 	}
@@ -26,10 +34,18 @@ pub fn schema(map: DbMap) -> Schema {
 		Query,
 		EmptyMutation::new(),
 		EmptySubscription::new(),
-		types,
+		QueryData {
+			entities,
+			operation_registry,
+		},
 		(),
 		(),
 	)
+}
+
+pub struct QueryData {
+	entities: Vec<DbEntity>,
+	operation_registry: OperationRegistry,
 }
 
 pub struct Query;
@@ -48,15 +64,13 @@ where
 	{
 		let mut queries = Vec::new();
 
-		for gql_type in info {
-			let registered_operations = OPERATION_REGISTRY
-				.lock()
-				.unwrap()
-				.register_entity(gql_type.clone());
-
-			for registered_operation in registered_operations {
-				if let Some(operation) = registered_operation {
-					queries.push(registry.field::<QueryField>(operation.as_str(), gql_type));
+		for entity in &info.entities {
+			if let Some(operations) = info
+				.operation_registry
+				.get_operations_by_entity_name(entity.name.as_str())
+			{
+				for operation in operations {
+					queries.push(registry.field::<QueryField<S>>(operation, &entity));
 				}
 			}
 		}
@@ -72,7 +86,7 @@ where
 	S: ScalarValue,
 {
 	type Context = ();
-	type TypeInfo = Vec<ApiGraphQLType>;
+	type TypeInfo = QueryData;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)
@@ -82,14 +96,12 @@ where
 impl GraphQLValueAsync for Query {
 	fn resolve_field_async<'b>(
 		&'b self,
-		_info: &'b Self::TypeInfo,
+		info: &'b Self::TypeInfo,
 		field_name: &'b str,
 		arguments: &'b Arguments<DefaultScalarValue>,
 		executor: &'b Executor<Self::Context, DefaultScalarValue>,
 	) -> BoxFuture<'b, ExecutionResult<DefaultScalarValue>> {
-		OPERATION_REGISTRY
-			.lock()
-			.unwrap()
+		info.operation_registry
 			.call_by_key(field_name, arguments, executor)
 			.unwrap()
 	}
@@ -144,9 +156,11 @@ where
 	}
 }
 
-pub struct QueryField;
+pub struct QueryField<S> {
+	properties: HashMap<String, Box<dyn GraphQLValue<S, Context = (), TypeInfo = ()>>>,
+}
 
-impl<S> GraphQLType<S> for QueryField
+impl<S> GraphQLType<S> for QueryField<S>
 where
 	S: ScalarValue,
 {
@@ -167,19 +181,31 @@ where
 		}
 
 		registry
-			.build_object_type::<QueryField>(info, &fields)
+			.build_object_type::<QueryField<S>>(info, &fields)
 			.into_meta()
 	}
 }
 
-impl<S> GraphQLValue<S> for QueryField
+impl<S> GraphQLValue<S> for QueryField<S>
 where
 	S: ScalarValue,
 {
 	type Context = ();
-	type TypeInfo = ApiGraphQLType;
+	type TypeInfo = DbEntity;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)
+	}
+
+	fn resolve_field(
+		&self,
+		_info: &Self::TypeInfo,
+		field_name: &str,
+		_arguments: &Arguments<S>,
+		executor: &Executor<Self::Context, S>,
+	) -> ExecutionResult<S> {
+		let value = self.properties.get(field_name).unwrap();
+
+		executor.resolve(&(), &value)
 	}
 }

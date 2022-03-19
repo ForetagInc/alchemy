@@ -50,13 +50,13 @@ pub struct DbEnum {
 	properties: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct DbEntity {
 	pub name: String,
 	pub properties: Vec<DbProperty>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq, Debug)]
 pub struct DbProperty {
 	pub name: String,
 	pub associated_type: Option<String>,
@@ -64,7 +64,7 @@ pub struct DbProperty {
 	pub required: bool,
 }
 
-#[derive(PartialEq, Default, Clone)]
+#[derive(PartialEq, Default, Clone, Debug)]
 pub enum DbScalarType {
 	Array(Box<DbScalarType>),
 	Enum(Vec<String>),
