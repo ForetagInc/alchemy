@@ -32,12 +32,15 @@ async fn main() -> std::io::Result<()> {
 	println!("Starting Alchemy on port {:?}", app_port);
 
 	let map = generate_sdl().await;
+	let api_schema = Data::new(api::schema::schema(map.clone()));
+
+	let meta_schema = Data::new(meta::graphql::schema());
 
 	// Actix server
 	HttpServer::new(move || {
 		App::new()
-			.app_data(Data::new(meta::graphql::schema()))
-			.app_data(Data::new(api::schema::schema(map.clone())))
+			.app_data(meta_schema.clone())
+			.app_data(api_schema.clone())
 			.wrap(
 				Cors::default()
 					.allow_any_origin()
