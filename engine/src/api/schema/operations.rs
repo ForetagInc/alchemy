@@ -106,19 +106,19 @@ fn map_value_to_type<S>(value: &JsonValue, db_type: &DbScalarType) -> Box<dyn Gr
 			Box::new("enum".to_string())
 		}
 		DbScalarType::String => {
-			Box::new(value.as_str().unwrap().to_string())
+			Box::new(value.as_str().map(|s| s.to_string()))
 		}
 		DbScalarType::Object => {
 			Box::new("object".to_string())
 		}
 		DbScalarType::Float => {
-			Box::new(value.as_f64().unwrap())
+			Box::new(value.as_f64())
 		}
 		DbScalarType::Int => {
-			Box::new(value.as_i64().unwrap() as i32)
+			Box::new(value.as_i64().map(|v| v as i32))
 		}
 		DbScalarType::Boolean => {
-			Box::new(value.as_bool().unwrap())
+			Box::new(value.as_bool())
 		}
 	}
 }
