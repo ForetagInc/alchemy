@@ -1,9 +1,10 @@
-use crate::api::schema::QueryField;
 use convert_case::Casing;
 use juniper::{Arguments, BoxFuture, DefaultScalarValue, ExecutionResult, Executor};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::lib::database::api::DbEntity;
+use crate::api::schema::QueryField;
 
 type FutureType<'b> = BoxFuture<'b, ExecutionResult<DefaultScalarValue>>;
 
@@ -35,9 +36,7 @@ impl OperationRegistry {
 		self.operations_by_entity.get(name)
 	}
 
-	pub fn register_entity(&mut self, entity: DbEntity) {
-		println!("{}", entity.name.clone());
-
+	pub fn register_entity(&mut self, entity: Arc<DbEntity>) {
 		let operations = vec![self.register(Get(entity.clone()))];
 
 		self.operations_by_entity.insert(
@@ -79,7 +78,7 @@ pub trait Operation {
 	}
 }
 
-pub struct Get(DbEntity);
+pub struct Get(Arc<DbEntity>);
 
 impl Operation for Get {
 	fn call<'b>(

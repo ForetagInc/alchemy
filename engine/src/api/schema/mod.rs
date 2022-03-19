@@ -5,9 +5,7 @@ use juniper::meta::{Field, MetaType};
 use juniper::{
 	Arguments, BoxFuture, DefaultScalarValue, EmptyMutation, EmptySubscription, ExecutionResult,
 	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
-	Selection,
 };
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -16,15 +14,15 @@ use crate::lib::database::api::*;
 pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
 pub fn schema(map: DbMap) -> Schema {
-	let mut entities: Vec<DbEntity> = Vec::new();
+	let mut entities: Vec<Arc<DbEntity>> = Vec::new();
 	let mut operation_registry = OperationRegistry::new();
 
 	for p in map.0 {
 		match p {
 			DbPrimitive::Entity(t) => {
-				entities.push(*t.clone());
+				entities.push(t.clone());
 
-				operation_registry.register_entity(*t);
+				operation_registry.register_entity(t);
 			}
 			DbPrimitive::Enum(_) => {}
 		}
@@ -44,7 +42,7 @@ pub fn schema(map: DbMap) -> Schema {
 }
 
 pub struct QueryData {
-	entities: Vec<DbEntity>,
+	entities: Vec<Arc<DbEntity>>,
 	operation_registry: OperationRegistry,
 }
 

@@ -2,6 +2,7 @@ use convert_case::Casing;
 use serde_json::Value;
 use std::fmt::Formatter;
 use std::ops::Deref;
+use std::sync::Arc;
 
 use crate::lib::schema::get_all_entries;
 
@@ -23,8 +24,8 @@ impl std::fmt::Display for DbMap {
 
 #[derive(Clone)]
 pub enum DbPrimitive {
-	Entity(Box<DbEntity>),
-	Enum(Box<DbEnum>),
+	Entity(Arc<DbEntity>),
+	Enum(Arc<DbEnum>),
 }
 
 impl std::fmt::Display for DbPrimitive {
@@ -154,7 +155,7 @@ pub async fn generate_sdl() -> DbMap {
 
 				associated_type = Some(enum_name.clone());
 
-				sdl.0.push(DbPrimitive::Enum(Box::new(DbEnum {
+				sdl.0.push(DbPrimitive::Enum(Arc::new(DbEnum {
 					name: enum_name,
 					properties: enum_values,
 				})));
@@ -169,7 +170,7 @@ pub async fn generate_sdl() -> DbMap {
 			});
 		}
 
-		sdl.0.push(DbPrimitive::Entity(Box::new(DbEntity {
+		sdl.0.push(DbPrimitive::Entity(Arc::new(DbEntity {
 			name: type_name,
 			properties: props,
 		})))
