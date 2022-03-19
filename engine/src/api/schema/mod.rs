@@ -4,7 +4,7 @@ pub mod fields;
 use crate::api::schema::operations::OperationRegistry;
 use juniper::meta::MetaType;
 use juniper::{
-	Arguments, BoxFuture, DefaultScalarValue, EmptyMutation, EmptySubscription, ExecutionResult,
+	Arguments, BoxFuture, EmptyMutation, EmptySubscription, ExecutionResult,
 	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
 };
 use crate::api::schema::fields::QueryFieldFactory;
@@ -37,15 +37,18 @@ pub fn schema(map: DbMap) -> Schema {
 	)
 }
 
-pub struct QueryData {
-	operation_registry: OperationRegistry,
+pub struct QueryData<S>
+	where
+		S: ScalarValue + Send + Sync
+{
+	operation_registry: OperationRegistry<S>,
 }
 
 pub struct Query;
 
 impl<S> GraphQLType<S> for Query
 where
-	S: ScalarValue,
+	S: ScalarValue + Send + Sync,
 {
 	fn name(_: &Self::TypeInfo) -> Option<&str> {
 		Some("Query")
@@ -69,24 +72,27 @@ where
 
 impl<S> GraphQLValue<S> for Query
 where
-	S: ScalarValue,
+	S: ScalarValue + Send + Sync,
 {
 	type Context = ();
-	type TypeInfo = QueryData;
+	type TypeInfo = QueryData<S>;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)
 	}
 }
 
-impl GraphQLValueAsync for Query {
+impl<S> GraphQLValueAsync<S> for Query
+	where
+		S: ScalarValue + Send + Sync,
+{
 	fn resolve_field_async<'b>(
 		&'b self,
 		info: &'b Self::TypeInfo,
 		field_name: &'b str,
-		arguments: &'b Arguments<DefaultScalarValue>,
-		executor: &'b Executor<Self::Context, DefaultScalarValue>,
-	) -> BoxFuture<'b, ExecutionResult<DefaultScalarValue>> {
+		arguments: &'b Arguments<S>,
+		executor: &'b Executor<Self::Context, S>,
+	) -> BoxFuture<'b, ExecutionResult<S>> {
 		info.operation_registry
 			.call_by_key(field_name, arguments, executor)
 			.unwrap()

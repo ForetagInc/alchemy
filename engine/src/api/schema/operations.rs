@@ -1,19 +1,27 @@
 use convert_case::Casing;
-use juniper::{Arguments, BoxFuture, DefaultScalarValue, ExecutionResult, Executor};
+use juniper::{Arguments, BoxFuture, ExecutionResult, Executor, ID, Registry, ScalarValue};
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::Arc;
+use juniper::meta::Argument;
 use crate::api::schema::fields::QueryField;
 
 use crate::lib::database::api::DbEntity;
 
-type FutureType<'b> = BoxFuture<'b, ExecutionResult<DefaultScalarValue>>;
+type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
 
-pub struct OperationRegistry {
-	operations: HashMap<String, Box<dyn Operation>>,
+pub struct OperationRegistry<S>
+	where
+		S: ScalarValue + Send + Sync
+{
+	operations: HashMap<String, Box<dyn Operation<S>>>,
 }
 
-impl OperationRegistry {
-	pub fn new() -> OperationRegistry {
+impl<S> OperationRegistry<S>
+	where
+		S: ScalarValue + Send + Sync
+{
+	pub fn new() -> OperationRegistry<S> {
 		OperationRegistry {
 			operations: HashMap::new(),
 		}
@@ -22,25 +30,27 @@ impl OperationRegistry {
 	pub fn call_by_key<'b>(
 		&self,
 		key: &str,
-		arguments: &Arguments<DefaultScalarValue>,
-		executor: &'b Executor<(), DefaultScalarValue>,
-	) -> Option<FutureType<'b>> {
+		arguments: &Arguments<S>,
+		executor: &'b Executor<(), S>,
+	) -> Option<FutureType<'b, S>> {
 		self.operations
 			.get(key)
 			.map(|o| o.call(arguments, executor))
 	}
 
-	pub fn get_operations(&self) -> &HashMap<String, Box<dyn Operation>> {
+	pub fn get_operations(&self) -> &HashMap<String, Box<dyn Operation<S>>> {
 		&self.operations
 	}
 
 	pub fn register_entity(&mut self, entity: Arc<DbEntity>) {
-		vec![self.register(Get(entity.clone()))];
+		vec![
+			self.register(Get(entity.clone(), PhantomData::default()))
+		];
 	}
 
 	fn register<T: 'static>(&mut self, operation: T) -> String
 	where
-		T: Operation,
+		T: Operation<S>,
 	{
 		let k = operation.get_operation_name();
 
@@ -50,18 +60,22 @@ impl OperationRegistry {
 	}
 }
 
-pub trait Operation
-	where Self: Send + Sync
+pub trait Operation<S>
+	where
+		S: ScalarValue,
+		Self: Send + Sync
 {
 	fn call<'b>(
 		&self,
-		arguments: &Arguments<DefaultScalarValue>,
-		executor: &'b Executor<(), DefaultScalarValue>,
-	) -> FutureType<'b>;
+		arguments: &Arguments<S>,
+		executor: &'b Executor<(), S>,
+	) -> FutureType<'b, S>;
 
 	fn get_operation_name(&self) -> String;
 
 	fn get_entity(&self) -> Arc<DbEntity>;
+
+	fn get_arguments<'r>(&self, registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>>;
 
 	fn get_collection_name(type_name: &str) -> String
 	where
@@ -75,14 +89,17 @@ pub trait Operation
 	}
 }
 
-pub struct Get(Arc<DbEntity>);
+pub struct Get<S>(Arc<DbEntity>, PhantomData<S>);
 
-impl Operation for Get {
+impl<S> Operation<S> for Get<S>
+	where
+		S: ScalarValue + Send + Sync
+{
 	fn call<'b>(
 		&self,
-		arguments: &Arguments<DefaultScalarValue>,
-		executor: &'b Executor<(), DefaultScalarValue>,
-	) -> FutureType<'b> {
+		arguments: &Arguments<S>,
+		executor: &'b Executor<(), S>,
+	) -> FutureType<'b, S> {
 		let collection = Self::get_collection_name(&self.0.name);
 
 		let entity = self.0.clone();
@@ -92,13 +109,13 @@ impl Operation for Get {
 
 			let mut properties: HashMap<
 				String,
-				Box<dyn juniper::GraphQLValue<DefaultScalarValue, Context = (), TypeInfo = ()>>,
+				Box<dyn juniper::GraphQLValue<S, Context = (), TypeInfo = ()>>,
 			> = HashMap::new();
 
 			properties.insert("firstName".to_string(), Box::new("Kenneth"));
 			properties.insert("lastName".to_string(), Box::new("Gomez"));
 
-			executor.resolve::<QueryField<DefaultScalarValue>>(&entity, &QueryField { properties })
+			executor.resolve::<QueryField<S>>(&entity, &QueryField { properties })
 		})
 	}
 
@@ -115,5 +132,11 @@ impl Operation for Get {
 
 	fn get_entity(&self) -> Arc<DbEntity> {
 		self.0.clone()
+	}
+
+	fn get_arguments<'r>(&self, registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
+		vec![
+			registry.arg::<ID>("surname", &())
+		]
 	}
 }

@@ -1,20 +1,28 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use juniper::{Arguments, ExecutionResult, Executor, GraphQLType, GraphQLValue, Registry, ScalarValue};
 use juniper::meta::{Field, MetaType};
 
 use crate::api::schema::operations::Operation;
 use crate::lib::database::api::{DbEntity, DbProperty, DbScalarType};
 
-pub struct QueryFieldFactory;
+pub struct QueryFieldFactory<S>(PhantomData<S>)
+	where
+		S: ScalarValue;
 
-impl QueryFieldFactory
+impl<S> QueryFieldFactory<S>
+	where
+		S: ScalarValue
 {
-	pub fn new<'a, S, T>(name: &str, operation: &Box<T>, registry: &mut Registry<'a, S>) -> Field<'a, S>
+	pub fn new<'a, T>(name: &str, operation: &Box<T>, registry: &mut Registry<'a, S>) -> Field<'a, S>
 		where
-			S: ScalarValue + 'a,
-			T: Operation + ?Sized
+			T: Operation<S> + ?Sized
 	{
-		let field = registry.field::<QueryField<S>>(name, &operation.get_entity());
+		let mut field = registry.field::<QueryField<S>>(name, &operation.get_entity());
+
+		for arg in operation.get_arguments(registry) {
+			field = field.argument(arg);
+		}
 
 		field
 	}
