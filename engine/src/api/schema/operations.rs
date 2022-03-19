@@ -1,12 +1,17 @@
+use std::any::Any;
 use convert_case::Casing;
-use juniper::{Arguments, BoxFuture, ExecutionResult, Executor, ID, Registry, ScalarValue};
+use juniper::{Arguments, BoxFuture, ExecutionResult, Executor, FieldError, graphql_value, GraphQLValue, ID, IntoFieldError, Registry, ScalarValue, Value};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use juniper::meta::Argument;
-use crate::api::schema::fields::QueryField;
+use rust_arango::{AqlQuery, ClientError};
+use serde_json::Value as JsonValue;
+use crate::api::schema::errors::NotFoundError;
 
-use crate::lib::database::api::DbEntity;
+use crate::api::schema::fields::QueryField;
+use crate::lib::database::api::{DbEntity, DbScalarType};
+use crate::lib::database::DATABASE;
 
 type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
 
@@ -28,9 +33,9 @@ impl<S> OperationRegistry<S>
 	}
 
 	pub fn call_by_key<'b>(
-		&self,
+		&'b self,
 		key: &str,
-		arguments: &Arguments<S>,
+		arguments: &'b Arguments<S>,
 		executor: &'b Executor<(), S>,
 	) -> Option<FutureType<'b, S>> {
 		self.operations
@@ -66,8 +71,8 @@ pub trait Operation<S>
 		Self: Send + Sync
 {
 	fn call<'b>(
-		&self,
-		arguments: &Arguments<S>,
+		&'b self,
+		arguments: &'b Arguments<S>,
 		executor: &'b Executor<(), S>,
 	) -> FutureType<'b, S>;
 
@@ -89,6 +94,35 @@ pub trait Operation<S>
 	}
 }
 
+fn map_value_to_type<S>(value: &JsonValue, db_type: &DbScalarType) -> Box<dyn GraphQLValue<S, Context = (), TypeInfo = ()> + Send>
+	where
+		S: ScalarValue
+{
+	match db_type {
+		DbScalarType::Array(_) => {
+			Box::new("array".to_string())
+		}
+		DbScalarType::Enum(_) => {
+			Box::new("enum".to_string())
+		}
+		DbScalarType::String => {
+			Box::new(value.as_str().unwrap().to_string())
+		}
+		DbScalarType::Object => {
+			Box::new("object".to_string())
+		}
+		DbScalarType::Float => {
+			Box::new(value.as_f64().unwrap())
+		}
+		DbScalarType::Int => {
+			Box::new(value.as_i64().unwrap() as i32)
+		}
+		DbScalarType::Boolean => {
+			Box::new(value.as_bool().unwrap())
+		}
+	}
+}
+
 pub struct Get<S>(Arc<DbEntity>, PhantomData<S>);
 
 impl<S> Operation<S> for Get<S>
@@ -96,8 +130,8 @@ impl<S> Operation<S> for Get<S>
 		S: ScalarValue + Send + Sync
 {
 	fn call<'b>(
-		&self,
-		arguments: &Arguments<S>,
+		&'b self,
+		arguments: &'b Arguments<S>,
 		executor: &'b Executor<(), S>,
 	) -> FutureType<'b, S> {
 		let collection = Self::get_collection_name(&self.0.name);
@@ -105,17 +139,54 @@ impl<S> Operation<S> for Get<S>
 		let entity = self.0.clone();
 
 		Box::pin(async move {
-			println!("{}", collection);
+			println!("{} {:?}", collection, arguments);
 
 			let mut properties: HashMap<
 				String,
-				Box<dyn juniper::GraphQLValue<S, Context = (), TypeInfo = ()>>,
+				Box<dyn juniper::GraphQLValue<S, Context = (), TypeInfo = ()> + Send>,
 			> = HashMap::new();
 
-			properties.insert("firstName".to_string(), Box::new("Kenneth"));
-			properties.insert("lastName".to_string(), Box::new("Gomez"));
+			let entries_query = AqlQuery::builder()
+				.query("FOR a IN @@collection
+						FILTER a.`_key` == @key
+						LIMIT 1
+						RETURN a")
+				.bind_var("@collection", collection)
+				.bind_var("key", arguments.get::<String>("id").unwrap())
+				.build();
 
-			executor.resolve::<QueryField<S>>(&entity, &QueryField { properties })
+			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
+				.get()
+				.await
+				.database
+				.aql_query(entries_query)
+				.await;
+
+			let not_found_error = NotFoundError::new(self.0.name.clone()).into_field_error();
+
+			return match entries {
+				Ok(data) => {
+					if let Some(first) = data.first() {
+						for property in &self.0.properties {
+							let prop_name = property.name.as_str();
+
+							properties.insert(
+								prop_name.to_string(),
+								map_value_to_type::<S>(&first[prop_name], &property.scalar_type)
+							);
+						}
+
+						return executor.resolve::<QueryField<S>>(&entity, &QueryField { properties })
+					}
+
+					Err(not_found_error)
+				}
+				Err(e) => {
+					println!("{:?}", e);
+
+					Err(not_found_error)
+				}
+			}
 		})
 	}
 
@@ -136,7 +207,7 @@ impl<S> Operation<S> for Get<S>
 
 	fn get_arguments<'r>(&self, registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
 		vec![
-			registry.arg::<ID>("surname", &())
+			registry.arg::<ID>("id", &())
 		]
 	}
 }

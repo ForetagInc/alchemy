@@ -25,7 +25,7 @@ impl QueryFieldFactory
 }
 
 pub struct QueryField<S> {
-	pub properties: HashMap<String, Box<dyn GraphQLValue<S, Context = (), TypeInfo = ()>>>,
+	pub properties: HashMap<String, Box<dyn GraphQLValue<S, Context = (), TypeInfo = ()> + Send>>,
 }
 
 fn build_field_from_property<'r, S>(

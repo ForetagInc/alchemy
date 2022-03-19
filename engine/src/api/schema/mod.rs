@@ -1,5 +1,6 @@
 pub mod operations;
 pub mod fields;
+pub mod errors;
 
 use crate::api::schema::operations::OperationRegistry;
 use juniper::meta::MetaType;
