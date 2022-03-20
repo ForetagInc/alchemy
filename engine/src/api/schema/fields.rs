@@ -47,11 +47,11 @@ where
 		registry: &mut Registry<'r, S>,
 		property: &DbProperty,
 		required: bool,
-		info: &T::TypeInfo
+		info: &T::TypeInfo,
 	) -> Field<'r, S>
 	where
 		S: ScalarValue + 'r,
-		T: GraphQLType<S, Context = ()>
+		T: GraphQLType<S, Context = ()>,
 	{
 		let is_array = matches!(property.scalar_type, DbScalarType::Array(_));
 
@@ -75,14 +75,21 @@ where
 			field
 		}
 
-		DbScalarType::Enum(values) => {
-			build_field::<GraphQLEnum, S>(registry, property, property.required, &DbEnumInfo {
+		DbScalarType::Enum(values) => build_field::<GraphQLEnum, S>(
+			registry,
+			property,
+			property.required,
+			&DbEnumInfo {
 				name: property.associated_type.clone().unwrap(),
-				properties: values.clone()
-			})
+				properties: values.clone(),
+			},
+		),
+		DbScalarType::String => {
+			build_field::<String, S>(registry, property, property.required, &())
 		}
-		DbScalarType::String => build_field::<String, S>(registry, property, property.required, &()),
-		DbScalarType::Object => build_field::<String, S>(registry, property, property.required, &()),
+		DbScalarType::Object => {
+			build_field::<String, S>(registry, property, property.required, &())
+		}
 		DbScalarType::Float => build_field::<f64, S>(registry, property, property.required, &()),
 		DbScalarType::Int => build_field::<i32, S>(registry, property, property.required, &()),
 		DbScalarType::Boolean => build_field::<bool, S>(registry, property, property.required, &()),

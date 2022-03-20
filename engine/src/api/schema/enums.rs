@@ -1,9 +1,9 @@
-use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
 use juniper::meta::{EnumValue, MetaType};
+use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
 
 pub struct DbEnumInfo {
 	pub(crate) name: String,
-	pub(crate) properties: Vec<String>
+	pub(crate) properties: Vec<String>,
 }
 
 pub struct GraphQLEnum(String);

@@ -103,9 +103,24 @@ where
 	S: ScalarValue,
 {
 	match db_type {
-		DbScalarType::Array(_) => Box::new("array".to_string()),
 		DbScalarType::Enum(_) | DbScalarType::String => {
 			Box::new(value.as_str().map(|s| s.to_string()))
+		}
+		DbScalarType::Array(v) => {
+			let content = match value.as_array() {
+				Some(arr) => {
+					let mut values = Vec::new();
+
+					for item in arr {
+						values.push(map_value_to_type::<S>(item, &*v))
+					}
+
+					Some(values)
+				},
+				None => None
+			};
+
+			Box::new(content)
 		}
 		DbScalarType::Object => Box::new("object".to_string()),
 		DbScalarType::Float => Box::new(value.as_f64()),
