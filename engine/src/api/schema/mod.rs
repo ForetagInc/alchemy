@@ -1,14 +1,15 @@
-pub mod operations;
-pub mod fields;
+pub mod enums;
 pub mod errors;
+pub mod fields;
+pub mod operations;
 
+use crate::api::schema::fields::QueryFieldFactory;
 use crate::api::schema::operations::OperationRegistry;
 use juniper::meta::MetaType;
 use juniper::{
-	Arguments, BoxFuture, EmptyMutation, EmptySubscription, ExecutionResult,
-	Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
+	Arguments, BoxFuture, EmptyMutation, EmptySubscription, ExecutionResult, Executor, GraphQLType,
+	GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
 };
-use crate::api::schema::fields::QueryFieldFactory;
 
 use crate::lib::database::api::*;
 
@@ -30,17 +31,15 @@ pub fn schema(map: DbMap) -> Schema {
 		Query,
 		EmptyMutation::new(),
 		EmptySubscription::new(),
-		QueryData {
-			operation_registry,
-		},
+		QueryData { operation_registry },
 		(),
 		(),
 	)
 }
 
 pub struct QueryData<S>
-	where
-		S: ScalarValue + Send + Sync
+where
+	S: ScalarValue + Send + Sync,
 {
 	operation_registry: OperationRegistry<S>,
 }
@@ -84,8 +83,8 @@ where
 }
 
 impl<S> GraphQLValueAsync<S> for Query
-	where
-		S: ScalarValue + Send + Sync,
+where
+	S: ScalarValue + Send + Sync,
 {
 	fn resolve_field_async<'b>(
 		&'b self,

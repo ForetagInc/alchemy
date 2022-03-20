@@ -1,18 +1,24 @@
-use std::collections::HashMap;
-use juniper::{Arguments, ExecutionResult, Executor, GraphQLType, GraphQLValue, Registry, ScalarValue};
+use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Field, MetaType};
+use juniper::{
+	Arguments, ExecutionResult, Executor, GraphQLType, GraphQLValue, Registry, ScalarValue,
+};
+use std::collections::HashMap;
 
 use crate::api::schema::operations::Operation;
 use crate::lib::database::api::{DbEntity, DbProperty, DbScalarType};
 
 pub struct QueryFieldFactory;
 
-impl QueryFieldFactory
-{
-	pub fn new<'a, S, T>(name: &str, operation: &Box<T>, registry: &mut Registry<'a, S>) -> Field<'a, S>
-		where
-			S: ScalarValue,
-			T: Operation<S> + ?Sized
+impl QueryFieldFactory {
+	pub fn new<'a, S, T>(
+		name: &str,
+		operation: &Box<T>,
+		registry: &mut Registry<'a, S>,
+	) -> Field<'a, S>
+	where
+		S: ScalarValue,
+		T: Operation<S> + ?Sized,
 	{
 		let mut field = registry.field::<QueryField<S>>(name, &operation.get_entity());
 
@@ -34,24 +40,25 @@ fn build_field_from_property<'r, S>(
 	scalar_type: &DbScalarType,
 	enforce_required: bool,
 ) -> Field<'r, S>
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	fn build_field<'r, T, S>(
 		registry: &mut Registry<'r, S>,
 		property: &DbProperty,
 		required: bool,
+		info: &T::TypeInfo
 	) -> Field<'r, S>
-		where
-			S: ScalarValue + 'r,
-			T: GraphQLType<S, Context = (), TypeInfo = ()>,
+	where
+		S: ScalarValue + 'r,
+		T: GraphQLType<S, Context = ()>
 	{
 		let is_array = matches!(property.scalar_type, DbScalarType::Array(_));
 
 		if required && !is_array {
-			registry.field::<T>(property.name.as_str(), &())
+			registry.field::<T>(property.name.as_str(), info)
 		} else {
-			registry.field::<Option<T>>(property.name.as_str(), &())
+			registry.field::<Option<T>>(property.name.as_str(), info)
 		}
 	}
 
@@ -68,26 +75,31 @@ fn build_field_from_property<'r, S>(
 			field
 		}
 
-		DbScalarType::Enum(_) => build_field::<String, S>(registry, property, property.required),
-		DbScalarType::String => build_field::<String, S>(registry, property, property.required),
-		DbScalarType::Object => build_field::<String, S>(registry, property, property.required),
-		DbScalarType::Float => build_field::<f64, S>(registry, property, property.required),
-		DbScalarType::Int => build_field::<i32, S>(registry, property, property.required),
-		DbScalarType::Boolean => build_field::<bool, S>(registry, property, property.required),
+		DbScalarType::Enum(values) => {
+			build_field::<GraphQLEnum, S>(registry, property, property.required, &DbEnumInfo {
+				name: property.associated_type.clone().unwrap(),
+				properties: values.clone()
+			})
+		}
+		DbScalarType::String => build_field::<String, S>(registry, property, property.required, &()),
+		DbScalarType::Object => build_field::<String, S>(registry, property, property.required, &()),
+		DbScalarType::Float => build_field::<f64, S>(registry, property, property.required, &()),
+		DbScalarType::Int => build_field::<i32, S>(registry, property, property.required, &()),
+		DbScalarType::Boolean => build_field::<bool, S>(registry, property, property.required, &()),
 	}
 }
 
 impl<S> GraphQLType<S> for QueryField<S>
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	fn name(info: &Self::TypeInfo) -> Option<&str> {
 		Some(info.name.as_str())
 	}
 
 	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
-		where
-			S: 'r,
+	where
+		S: 'r,
 	{
 		let mut fields = Vec::new();
 
@@ -104,8 +116,8 @@ impl<S> GraphQLType<S> for QueryField<S>
 }
 
 impl<S> GraphQLValue<S> for QueryField<S>
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	type Context = ();
 	type TypeInfo = DbEntity;
@@ -126,4 +138,3 @@ impl<S> GraphQLValue<S> for QueryField<S>
 		executor.resolve(&(), &value)
 	}
 }
-

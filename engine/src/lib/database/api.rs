@@ -47,8 +47,8 @@ impl std::fmt::Display for DbPrimitive {
 
 #[derive(Clone)]
 pub struct DbEnum {
-	name: String,
-	properties: Vec<String>,
+	pub name: String,
+	pub properties: Vec<String>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
