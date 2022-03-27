@@ -16,10 +16,30 @@ pub struct AlchemyCollectionEntry {
 }
 
 /// Get all of the entries in the database
-pub async fn get_all_entries() -> Vec<JsonValue> {
+pub async fn get_all_collections() -> Vec<JsonValue> {
 	let entries_query = AqlQuery::builder()
 		.query(
 			"FOR entry in alchemy_collections
+				RETURN entry",
+		)
+		.build();
+
+	let entries: Vec<JsonValue> = DATABASE
+		.get()
+		.await
+		.database
+		.aql_query(entries_query)
+		.await
+		.unwrap();
+
+	return entries;
+}
+
+/// Get all of the entries in the database
+pub async fn get_all_edges() -> Vec<JsonValue> {
+	let entries_query = AqlQuery::builder()
+		.query(
+			"FOR entry in alchemy_edges
 				RETURN entry",
 		)
 		.build();

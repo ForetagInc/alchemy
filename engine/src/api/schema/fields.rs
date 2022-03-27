@@ -5,8 +5,10 @@ use juniper::{
 };
 use std::collections::HashMap;
 
-use crate::api::schema::operations::Operation;
-use crate::lib::database::api::{DbEntity, DbProperty, DbScalarType};
+use crate::api::schema::operations::{Operation, OperationData};
+use crate::lib::database::api::{
+	DbEntity, DbProperty, DbRelationship, DbRelationshipType, DbScalarType,
+};
 
 pub struct QueryFieldFactory;
 
@@ -20,7 +22,7 @@ impl QueryFieldFactory {
 		S: ScalarValue,
 		T: Operation<S> + ?Sized,
 	{
-		let mut field = registry.field::<QueryField<S>>(name, &operation.get_entity());
+		let mut field = registry.field::<QueryField<S>>(name, &operation.get_data());
 
 		for arg in operation.get_arguments(registry) {
 			field = field.argument(arg);
@@ -96,12 +98,30 @@ where
 	}
 }
 
+fn build_field_from_relationship<'r, S>(
+	registry: &mut Registry<'r, S>,
+	relationship: &DbRelationship,
+	info: &OperationData,
+) -> Field<'r, S>
+where
+	S: ScalarValue,
+{
+	return match relationship.relationship_type {
+		DbRelationshipType::OneToOne => {
+			registry.field::<QueryField<S>>(relationship.name.as_str(), info)
+		}
+		DbRelationshipType::OneToMany | DbRelationshipType::ManyToMany => {
+			registry.field::<Vec<QueryField<S>>>(relationship.name.as_str(), info)
+		}
+	};
+}
+
 impl<S> GraphQLType<S> for QueryField<S>
 where
 	S: ScalarValue,
 {
 	fn name(info: &Self::TypeInfo) -> Option<&str> {
-		Some(info.name.as_str())
+		Some(info.entity.name.as_str())
 	}
 
 	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
@@ -110,8 +130,14 @@ where
 	{
 		let mut fields = Vec::new();
 
-		for property in &info.properties {
+		for property in &info.entity.properties {
 			let field = build_field_from_property(registry, &property, &property.scalar_type, true);
+
+			fields.push(field);
+		}
+
+		for relationship in &*info.relationships {
+			let field = build_field_from_relationship(registry, relationship, &info);
 
 			fields.push(field);
 		}
@@ -127,7 +153,7 @@ where
 	S: ScalarValue,
 {
 	type Context = ();
-	type TypeInfo = DbEntity;
+	type TypeInfo = OperationData;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)

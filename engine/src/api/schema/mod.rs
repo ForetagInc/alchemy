@@ -10,6 +10,7 @@ use juniper::{
 	Arguments, BoxFuture, EmptyMutation, EmptySubscription, ExecutionResult, Executor, GraphQLType,
 	GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
 };
+use std::sync::Arc;
 
 use crate::lib::database::api::*;
 
@@ -18,10 +19,18 @@ pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 pub fn schema(map: DbMap) -> Schema {
 	let mut operation_registry = OperationRegistry::new();
 
-	for p in map.0 {
+	for p in map.primitives {
 		match p {
 			DbPrimitive::Entity(t) => {
-				operation_registry.register_entity(t);
+				let mut relationships = Vec::new();
+
+				for relationship in &map.relationships {
+					if relationship.from == t {
+						relationships.push(relationship.clone())
+					}
+				}
+
+				operation_registry.register_entity(t, Arc::new(relationships));
 			}
 			DbPrimitive::Enum(_) => {}
 		}

@@ -1,20 +1,33 @@
 use convert_case::Casing;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use crate::lib::schema::get_all_entries;
+use crate::lib::schema::{get_all_collections, get_all_edges};
 
 const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
 
 #[derive(Clone)]
-pub struct DbMap(pub Vec<DbPrimitive>);
+pub struct DbMap {
+	pub primitives: Vec<DbPrimitive>,
+	pub relationships: Vec<DbRelationship>,
+}
+
+impl DbMap {
+	pub fn new() -> Self {
+		Self {
+			primitives: Vec::new(),
+			relationships: Vec::new(),
+		}
+	}
+}
 
 impl std::fmt::Display for DbMap {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		for primitive in self.0.iter() {
+		for primitive in self.primitives.iter() {
 			write!(f, "{}", primitive)?
 		}
 
@@ -52,8 +65,35 @@ pub struct DbEnum {
 }
 
 #[derive(Clone, PartialEq, Debug)]
+pub enum DbRelationshipType {
+	OneToOne,
+	OneToMany,
+	ManyToMany,
+}
+
+impl From<&str> for DbRelationshipType {
+	fn from(value: &str) -> Self {
+		return match value {
+			"one_to_one" => Self::OneToOne,
+			"one_to_many" => Self::OneToMany,
+			"many_to_many" => Self::ManyToMany,
+			&_ => Self::OneToOne,
+		};
+	}
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct DbRelationship {
+	pub name: String,
+	pub from: Arc<DbEntity>,
+	pub to: Arc<DbEntity>,
+	pub relationship_type: DbRelationshipType,
+}
+
+#[derive(Clone, PartialEq, Debug)]
 pub struct DbEntity {
 	pub name: String,
+	pub collection_name: String,
 	pub properties: Vec<DbProperty>,
 }
 
@@ -103,21 +143,21 @@ pub enum JsonType {
 }
 
 pub async fn generate_sdl() -> DbMap {
-	let entries = get_all_entries().await;
+	let collections = get_all_collections().await;
+	let edges = get_all_edges().await;
 
-	let mut sdl: DbMap = DbMap(Vec::new());
+	let mut sdl: DbMap = DbMap::new();
+	let mut collections_by_keys: HashMap<String, Arc<DbEntity>> = HashMap::new();
 
 	println!("----- SDL GENERATION -----");
 
 	let time = std::time::Instant::now();
 
-	for entry in entries.clone().iter() {
+	for entry in collections.clone().iter() {
+		let collection_name = entry["name"].as_str().unwrap().to_string();
+
 		let type_name = pluralizer::pluralize(
-			entry["name"]
-				.as_str()
-				.unwrap()
-				.to_case(convert_case::Case::Pascal)
-				.as_str(),
+			collection_name.to_case(convert_case::Case::Pascal).as_str(),
 			1,
 			false,
 		);
@@ -155,7 +195,7 @@ pub async fn generate_sdl() -> DbMap {
 
 				associated_type = Some(enum_name.clone());
 
-				sdl.0.push(DbPrimitive::Enum(Arc::new(DbEnum {
+				sdl.primitives.push(DbPrimitive::Enum(Arc::new(DbEnum {
 					name: enum_name,
 					properties: enum_values,
 				})));
@@ -170,10 +210,34 @@ pub async fn generate_sdl() -> DbMap {
 			});
 		}
 
-		sdl.0.push(DbPrimitive::Entity(Arc::new(DbEntity {
+		let entity = Arc::new(DbEntity {
 			name: type_name,
+			collection_name: collection_name.clone(),
 			properties: props,
-		})))
+		});
+
+		// We insert it on this hash map for future use of relationships
+		collections_by_keys.insert(collection_name, entity.clone());
+
+		sdl.primitives.push(DbPrimitive::Entity(entity.clone()))
+	}
+
+	for entry in edges.clone().iter() {
+		let prop_name = entry["name"].as_str().unwrap();
+		let from = entry["from"].as_str().unwrap();
+		let to = entry["to"].as_str().unwrap();
+		let relationship_type: DbRelationshipType = entry["type"].as_str().unwrap().into();
+
+		if let (Some(from_entity), Some(to_entity)) =
+			(collections_by_keys.get(from), collections_by_keys.get(to))
+		{
+			sdl.relationships.push(DbRelationship {
+				name: prop_name.to_string(),
+				from: from_entity.clone(),
+				to: to_entity.clone(),
+				relationship_type,
+			})
+		}
 	}
 
 	println!("----- SDL GENERATED in {:?} -----", time.elapsed());
