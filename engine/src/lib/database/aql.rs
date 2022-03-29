@@ -4,22 +4,48 @@ use std::collections::HashMap;
 use crate::lib::database::api::DbEntity;
 
 pub struct AQLQuery<'a> {
-	pub entity: &'a DbEntity,
 	pub properties: Vec<AQLProperty>,
 	pub filter: Box<dyn AQLNode>,
 	pub parameters: HashMap<&'a str, Value>,
 }
 
 impl<'a> AQLQuery<'a> {
-	pub fn new(entity: &'a DbEntity, filter: Box<dyn AQLNode>) -> Box<AQLQuery> {
+	pub fn new(filter: Box<dyn AQLNode>) -> Box<AQLQuery<'a>> {
 		Box::new(AQLQuery {
-			entity,
 			filter,
 			properties: Vec::new(),
 			parameters: HashMap::new(),
 		})
 	}
+
+	pub fn to_aql(&self, limit: u32) -> String {
+		format!(
+			"
+		FOR a IN @@collection
+			FILTER {}
+				LIMIT {}
+		RETURN {}",
+			self.filter.describe(),
+			limit,
+			self.describe_parameters("a")
+		)
+	}
+
+	pub fn describe_parameters(&self, item_query_var: &str) -> String {
+		format!(
+			"{{
+			{}
+		}}",
+			self.properties
+				.iter()
+				.map(|p| format!("\"{name}\": {}.`{name}`", item_query_var, name = p.name))
+				.collect::<Vec<String>>()
+				.join(",\n")
+		)
+	}
 }
+
+unsafe impl<'a> Send for AQLQuery<'a> {}
 
 #[derive(Debug)]
 pub struct AQLProperty {
@@ -54,7 +80,7 @@ pub trait AQLNode {
 impl AQLNode for AQLFilter {
 	fn describe(&self) -> String {
 		format!(
-			"{} {} {}",
+			"({} {} {})",
 			self.left_node.describe(),
 			self.operation.to_string(),
 			self.right_node.describe()

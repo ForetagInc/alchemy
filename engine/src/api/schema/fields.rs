@@ -2,15 +2,12 @@ use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Field, MetaType};
 use juniper::{
 	Arguments, BoxFuture, ExecutionResult, Executor, GraphQLType, GraphQLValue, GraphQLValueAsync,
-	Object, Registry, ScalarValue, Selection, Spanning, Value,
+	Registry, ScalarValue, Selection, Spanning,
 };
-use std::collections::HashMap;
 
 use crate::api::schema::operations::{Operation, OperationData};
 use crate::api::schema::QueryData;
-use crate::lib::database::api::{
-	DbEntity, DbProperty, DbRelationship, DbRelationshipType, DbScalarType,
-};
+use crate::lib::database::api::{DbProperty, DbRelationship, DbRelationshipType, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery};
 
 pub struct QueryFieldFactory;
@@ -25,7 +22,7 @@ impl QueryFieldFactory {
 		S: ScalarValue,
 		T: Operation<S> + ?Sized,
 	{
-		let mut field = registry.field::<QueryField<S>>(name, &operation.get_data());
+		let mut field = registry.field::<QueryField>(name, &operation.get_data());
 
 		for arg in operation.get_arguments(registry) {
 			field = field.argument(arg);
@@ -48,9 +45,7 @@ impl QueryFieldFactory {
 	}
 }
 
-pub struct QueryField<S> {
-	pub properties: HashMap<String, Box<dyn GraphQLValue<S, Context = (), TypeInfo = ()> + Send>>,
-}
+pub struct QueryField;
 
 fn build_field_from_property<'r, S>(
 	registry: &mut Registry<'r, S>,
@@ -124,15 +119,15 @@ where
 {
 	return match relationship.relationship_type {
 		DbRelationshipType::OneToOne => {
-			registry.field::<QueryField<S>>(relationship.name.as_str(), info)
+			registry.field::<QueryField>(relationship.name.as_str(), info)
 		}
 		DbRelationshipType::OneToMany | DbRelationshipType::ManyToMany => {
-			registry.field::<Vec<QueryField<S>>>(relationship.name.as_str(), info)
+			registry.field::<Vec<QueryField>>(relationship.name.as_str(), info)
 		}
 	};
 }
 
-impl<S> GraphQLType<S> for QueryField<S>
+impl<S> GraphQLType<S> for QueryField
 where
 	S: ScalarValue,
 {
@@ -159,12 +154,12 @@ where
 		}
 
 		registry
-			.build_object_type::<QueryField<S>>(info, &fields)
+			.build_object_type::<QueryField>(info, &fields)
 			.into_meta()
 	}
 }
 
-impl<S> GraphQLValue<S> for QueryField<S>
+impl<S> GraphQLValue<S> for QueryField
 where
 	S: ScalarValue,
 {
@@ -173,18 +168,6 @@ where
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)
-	}
-
-	fn resolve_field(
-		&self,
-		_info: &Self::TypeInfo,
-		field_name: &str,
-		_arguments: &Arguments<S>,
-		executor: &Executor<Self::Context, S>,
-	) -> ExecutionResult<S> {
-		let value = self.properties.get(field_name).unwrap();
-
-		executor.resolve(&(), &value)
 	}
 }
 
@@ -218,7 +201,7 @@ where
 		&'b self,
 		info: &'b Self::TypeInfo,
 		selection_set: Option<&'b [Selection<S>]>,
-		executor: &'b Executor<Self::Context, S>,
+		_executor: &'b Executor<Self::Context, S>,
 	) -> BoxFuture<'b, ExecutionResult<S>> {
 		println!(
 			"{}\n{:#?}\n{:#?}",
@@ -230,7 +213,6 @@ where
 			self.field_name,
 			self.arguments,
 			selection_set.unwrap(),
-			executor,
 		))
 	}
 }
@@ -240,19 +222,13 @@ async fn resolve_graphql_field<'a, S>(
 	field_name: &str,
 	arguments: &'a Arguments<'a, S>,
 	selection_set: &'a [Selection<'a, S>],
-	executor: &'a Executor<'a, 'a, (), S>,
 ) -> ExecutionResult<S>
 where
 	S: ScalarValue + Send + Sync,
 {
-	use juniper::futures::stream::{FuturesOrdered, StreamExt as _};
-
 	let operation = info.operation_registry.get_operation(field_name);
-	let entity = operation.get_entity();
 
-	let mut query = AQLQuery::new(&entity, Box::new(operation.get_aql_filter()));
-
-	let mut object = Object::<S>::with_capacity(selection_set.len());
+	let mut query = AQLQuery::new(Box::new(operation.get_aql_filter()));
 
 	for selection in selection_set {
 		match *selection {
@@ -278,9 +254,11 @@ where
 		}
 	}
 
-	println!("{:#?}", query.properties);
+	let val = info
+		.operation_registry
+		.call_by_key(field_name, arguments, query)
+		.unwrap()
+		.await?;
 
-	Ok(juniper::Value::<S>::Object(juniper::Object::with_capacity(
-		10,
-	)))
+	Ok(val)
 }

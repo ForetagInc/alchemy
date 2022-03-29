@@ -2,20 +2,18 @@ use crate::api::schema::errors::NotFoundError;
 use convert_case::Casing;
 use juniper::meta::Argument;
 use juniper::{
-	graphql_value, Arguments, BoxFuture, ExecutionResult, Executor, FieldError, GraphQLValue,
-	IntoFieldError, Registry, ScalarValue, Value, ID,
+	Arguments, BoxFuture, ExecutionResult, GraphQLValue, IntoFieldError, Registry, ScalarValue,
+	Value, ID,
 };
 use rust_arango::{AqlQuery, ClientError};
 use serde_json::Value as JsonValue;
-use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::api::schema::fields::QueryField;
 use crate::lib::database::api::{DbEntity, DbRelationship, DbScalarType};
 use crate::lib::database::aql::{
-	AQLFilter, AQLNode, AQLOperation, AQLQueryBind, AQLQueryParameter,
+	AQLFilter, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
 };
 use crate::lib::database::DATABASE;
 
@@ -42,11 +40,9 @@ where
 		&'b self,
 		key: &str,
 		arguments: &'b Arguments<S>,
-		executor: &'b Executor<(), S>,
+		query: Box<AQLQuery<'b>>,
 	) -> Option<FutureType<'b, S>> {
-		self.operations
-			.get(key)
-			.map(|o| o.call(arguments, executor))
+		self.operations.get(key).map(|o| o.call(arguments, query))
 	}
 
 	pub fn get_operations(&self) -> &HashMap<String, Box<dyn Operation<S>>> {
@@ -88,11 +84,7 @@ where
 	S: ScalarValue,
 	Self: Send + Sync,
 {
-	fn call<'b>(
-		&'b self,
-		arguments: &'b Arguments<S>,
-		executor: &'b Executor<(), S>,
-	) -> FutureType<'b, S>;
+	fn call<'b>(&'b self, arguments: &'b Arguments<S>, query: Box<AQLQuery<'b>>) -> FutureType<'b, S>;
 
 	fn get_operation_name(&self) -> String;
 
@@ -176,84 +168,35 @@ pub struct OperationData {
 	pub relationships: Arc<Vec<DbRelationship>>,
 }
 
+fn convert_json_to_juniper_value<S>(json: &JsonValue) -> Value<S>
+where
+	S: ScalarValue + Send + Sync,
+{
+	println!("{}", json);
+
+	todo!()
+}
+
 pub struct Get<S>(Arc<OperationData>, PhantomData<S>);
 
 impl<S> Operation<S> for Get<S>
 where
 	S: ScalarValue + Send + Sync,
 {
-	fn call<'b>(
-		&'b self,
-		arguments: &'b Arguments<S>,
-		executor: &'b Executor<(), S>,
-	) -> FutureType<'b, S> {
+	fn call<'b>(&'b self, arguments: &'b Arguments<S>, query: Box<AQLQuery<'b>>) -> FutureType<'b, S> {
 		let entity = self.get_entity();
 
 		let collection = Self::get_collection_name(&entity.name);
 
 		Box::pin(async move {
-			println!("{} {:?}", collection.clone(), arguments);
+			let query_str = query.to_aql(1);
 
-			let mut properties: HashMap<
-				String,
-				Box<dyn juniper::GraphQLValue<S, Context = (), TypeInfo = ()> + Send>,
-			> = HashMap::new();
-
-			let mut relationship_aql = String::new();
-
-			for (i, _) in self.get_relationships().iter().enumerate() {
-				relationship_aql.push_str(
-					format!(
-						"
-						{{
-							name: @relationship_{id},
-							values: (FOR b_{id} IN OUTBOUND a @@relationship_{id} RETURN b_{id})
-						}},",
-						id = i
-					)
-					.as_str(),
-				)
-			}
-
-			let query = format!(
-				"
-					FOR a IN @@collection
-						FILTER a.`_key` == @key
-							LIMIT 1
-					LET rel = (
-						[
-							{}
-						]
-					)
-					RETURN {{
-						entity: a,
-						relationships: rel
-					}}",
-				relationship_aql
-			);
+			println!("{}", &query_str);
 
 			let mut entries_query = AqlQuery::builder()
-				.query(query.as_str())
+				.query(&query_str)
 				.bind_var("@collection", collection.clone())
-				.bind_var("key", arguments.get::<String>("id").unwrap());
-
-			for (i, relationship) in self.get_relationships().iter().enumerate() {
-				let relationship_name = Self::get_relationship_edge_name(relationship);
-
-				fn string_to_static_str<'b>(s: String) -> &'b str {
-					Box::leak(s.into_boxed_str())
-				}
-
-				entries_query = entries_query
-					.bind_var(
-						string_to_static_str::<'b>(format!("@relationship_{}", i)),
-						relationship_name.as_str(),
-					)
-					.bind_var(
-						string_to_static_str::<'b>(format!("relationship_{}", i)),
-						relationship.name.as_str(),
-					)
-			}
+				.bind_var("id", arguments.get::<String>("id").unwrap());
 
 			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
 				.get()
@@ -267,38 +210,7 @@ where
 			return match entries {
 				Ok(data) => {
 					if let Some(first) = data.first() {
-						for relationship in first["relationships"].as_array().unwrap() {
-							let mut rel_properties: HashMap<
-								String,
-								Box<
-									dyn juniper::GraphQLValue<S, Context = (), TypeInfo = ()>
-										+ Send,
-								>,
-							> = HashMap::new();
-
-							let relationship_name = relationship["name"].as_str().unwrap();
-							let values = relationship["values"].as_array().unwrap();
-
-							properties
-								.insert(relationship_name.to_string(), Box::new("asd".to_string()));
-						}
-
-						for property in &entity.properties {
-							let prop_name = property.name.as_str();
-
-							properties.insert(
-								prop_name.to_string(),
-								map_value_to_type::<S>(
-									&first["entity"][prop_name],
-									&property.scalar_type,
-								),
-							);
-						}
-
-						return executor.resolve::<QueryField<S>>(
-							&self.get_data(),
-							&QueryField { properties },
-						);
+						return Ok(convert_json_to_juniper_value(first));
 					}
 
 					Err(not_found_error)
@@ -345,8 +257,8 @@ where
 	fn get_aql_filter(&self) -> AQLFilter {
 		AQLFilter {
 			left_node: Box::new(AQLQueryParameter(format!(
-				"{}._`key`",
-				self.get_entity().collection_name
+				"{}.`_key`",
+				"a"
 			))),
 			operation: AQLOperation::EQUAL,
 			right_node: Box::new(AQLQueryBind("id")),
