@@ -1,12 +1,17 @@
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Field, MetaType};
-use juniper::{Arguments, BoxFuture, ExecutionResult, Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Object, Registry, ScalarValue, Selection, Spanning, Value};
+use juniper::{
+	Arguments, BoxFuture, ExecutionResult, Executor, GraphQLType, GraphQLValue, GraphQLValueAsync,
+	Object, Registry, ScalarValue, Selection, Spanning, Value,
+};
 use std::collections::HashMap;
 
 use crate::api::schema::operations::{Operation, OperationData};
+use crate::api::schema::QueryData;
 use crate::lib::database::api::{
 	DbEntity, DbProperty, DbRelationship, DbRelationshipType, DbScalarType,
 };
+use crate::lib::database::aql::{AQLProperty, AQLQuery};
 
 pub struct QueryFieldFactory;
 
@@ -195,10 +200,10 @@ where
 
 impl<'a, S> GraphQLValue<S> for QueryFieldResolver<'a, S>
 where
-	S: ScalarValue,
+	S: ScalarValue + Send + Sync,
 {
 	type Context = ();
-	type TypeInfo = ();
+	type TypeInfo = QueryData<S>;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		None
@@ -221,16 +226,17 @@ where
 		);
 
 		Box::pin(resolve_graphql_field(
+			info,
 			self.field_name,
 			self.arguments,
 			selection_set.unwrap(),
-			executor
+			executor,
 		))
 	}
 }
 
-#[async_recursion::async_recursion]
 async fn resolve_graphql_field<'a, S>(
+	info: &'a QueryData<S>,
 	field_name: &str,
 	arguments: &'a Arguments<'a, S>,
 	selection_set: &'a [Selection<'a, S>],
@@ -241,15 +247,16 @@ where
 {
 	use juniper::futures::stream::{FuturesOrdered, StreamExt as _};
 
+	let operation = info.operation_registry.get_operation(field_name);
+	let entity = operation.get_entity();
+
+	let mut query = AQLQuery::new(&entity, Box::new(operation.get_aql_filter()));
+
 	let mut object = Object::<S>::with_capacity(selection_set.len());
 
 	for selection in selection_set {
 		match *selection {
-			Selection::Field(Spanning {
-								 item: ref f,
-								 ..
-							 }) => {
-
+			Selection::Field(Spanning { item: ref f, .. }) => {
 				let response_name = f.alias.as_ref().unwrap_or(&f.name).item;
 
 				if f.name.item == "__typename" {
@@ -258,15 +265,22 @@ where
 
 				let response_name = response_name.to_string();
 
-				println!("{}", response_name);
+				query.properties.push(AQLProperty {
+					name: response_name,
+				});
 
-				if let Some(inner_selection_set) = &f.selection_set {
-					resolve_graphql_field(field_name, arguments, inner_selection_set, executor).await?;
-				}
+				// if let Some(inner_selection_set) = &f.selection_set {
+				// 	resolve_graphql_field(info, field_name, arguments, inner_selection_set, executor)
+				// 		.await?;
+				// }
 			}
-			_ => unreachable!()
+			_ => unreachable!(),
 		}
 	}
 
-	Ok(juniper::Value::<S>::Object(juniper::Object::with_capacity(10)))
+	println!("{:#?}", query.properties);
+
+	Ok(juniper::Value::<S>::Object(juniper::Object::with_capacity(
+		10,
+	)))
 }

@@ -14,6 +14,9 @@ use std::sync::Arc;
 
 use crate::api::schema::fields::QueryField;
 use crate::lib::database::api::{DbEntity, DbRelationship, DbScalarType};
+use crate::lib::database::aql::{
+	AQLFilter, AQLNode, AQLOperation, AQLQueryBind, AQLQueryParameter,
+};
 use crate::lib::database::DATABASE;
 
 type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
@@ -74,6 +77,10 @@ where
 
 		k
 	}
+
+	pub fn get_operation(&self, field_name: &str) -> &dyn Operation<S> {
+		self.operations.get(field_name).unwrap().as_ref()
+	}
 }
 
 pub trait Operation<S>
@@ -96,6 +103,8 @@ where
 	fn get_data(&self) -> Arc<OperationData>;
 
 	fn get_arguments<'r>(&self, registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>>;
+
+	fn get_aql_filter(&self) -> AQLFilter;
 
 	fn get_collection_name(type_name: &str) -> String
 	where
@@ -331,5 +340,16 @@ where
 
 	fn get_arguments<'r>(&self, registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
 		vec![registry.arg::<ID>("id", &())]
+	}
+
+	fn get_aql_filter(&self) -> AQLFilter {
+		AQLFilter {
+			left_node: Box::new(AQLQueryParameter(format!(
+				"{}._`key`",
+				self.get_entity().collection_name
+			))),
+			operation: AQLOperation::EQUAL,
+			right_node: Box::new(AQLQueryBind("id")),
+		}
 	}
 }

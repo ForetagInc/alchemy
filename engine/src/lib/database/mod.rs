@@ -6,6 +6,8 @@ pub mod schema;
 pub mod api;
 pub use api::generate_sdl;
 
+pub mod aql;
 pub mod database;
+
 pub use database::ArangoDB;
 pub use database::DATABASE;

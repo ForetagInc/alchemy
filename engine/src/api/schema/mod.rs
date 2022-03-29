@@ -104,7 +104,10 @@ where
 	) -> BoxFuture<'b, ExecutionResult<S>> {
 		Box::pin(async move {
 			executor
-				.resolve_async(&(), &QueryFieldFactory::new_resolver(field_name, arguments))
+				.resolve_async(
+					info,
+					&QueryFieldFactory::new_resolver(field_name, arguments),
+				)
 				.await
 		})
 	}
