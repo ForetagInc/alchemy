@@ -199,8 +199,10 @@ where
 						{{
 							name: @relationship_{id},
 							values: (FOR b_{id} IN OUTBOUND a @@relationship_{id} RETURN b_{id})
-						}},", id = i
-					).as_str(),
+						}},",
+						id = i
+					)
+					.as_str(),
 				)
 			}
 
@@ -234,12 +236,22 @@ where
 				}
 
 				entries_query = entries_query
-					.bind_var(string_to_static_str::<'b>(format!("@relationship_{}", i)), relationship_name.as_str())
-					.bind_var(string_to_static_str::<'b>(format!("relationship_{}", i)), relationship.name.as_str())
+					.bind_var(
+						string_to_static_str::<'b>(format!("@relationship_{}", i)),
+						relationship_name.as_str(),
+					)
+					.bind_var(
+						string_to_static_str::<'b>(format!("relationship_{}", i)),
+						relationship.name.as_str(),
+					)
 			}
 
-			let entries: Result<Vec<JsonValue>, ClientError> =
-				DATABASE.get().await.database.aql_query(entries_query.build()).await;
+			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
+				.get()
+				.await
+				.database
+				.aql_query(entries_query.build())
+				.await;
 
 			let not_found_error = NotFoundError::new(entity.name.clone()).into_field_error();
 
@@ -249,16 +261,17 @@ where
 						for relationship in first["relationships"].as_array().unwrap() {
 							let mut rel_properties: HashMap<
 								String,
-								Box<dyn juniper::GraphQLValue<S, Context = (), TypeInfo = ()> + Send>,
+								Box<
+									dyn juniper::GraphQLValue<S, Context = (), TypeInfo = ()>
+										+ Send,
+								>,
 							> = HashMap::new();
 
 							let relationship_name = relationship["name"].as_str().unwrap();
 							let values = relationship["values"].as_array().unwrap();
 
-							properties.insert(
-								relationship_name.to_string(),
-								Box::new("asd".to_string())
-							);
+							properties
+								.insert(relationship_name.to_string(), Box::new("asd".to_string()));
 						}
 
 						for property in &entity.properties {
@@ -266,7 +279,10 @@ where
 
 							properties.insert(
 								prop_name.to_string(),
-								map_value_to_type::<S>(&first["entity"][prop_name], &property.scalar_type),
+								map_value_to_type::<S>(
+									&first["entity"][prop_name],
+									&property.scalar_type,
+								),
 							);
 						}
 

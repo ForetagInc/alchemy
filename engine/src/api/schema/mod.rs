@@ -102,8 +102,10 @@ where
 		arguments: &'b Arguments<S>,
 		executor: &'b Executor<Self::Context, S>,
 	) -> BoxFuture<'b, ExecutionResult<S>> {
-		info.operation_registry
-			.call_by_key(field_name, arguments, executor)
-			.unwrap()
+		Box::pin(async move {
+			executor
+				.resolve_async(&(), &QueryFieldFactory::new_resolver(field_name, arguments))
+				.await
+		})
 	}
 }

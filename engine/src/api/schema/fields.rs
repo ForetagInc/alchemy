@@ -1,7 +1,8 @@
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Field, MetaType};
 use juniper::{
-	Arguments, ExecutionResult, Executor, GraphQLType, GraphQLValue, Registry, ScalarValue,
+	Arguments, BoxFuture, ExecutionResult, Executor, GraphQLType, GraphQLValue, GraphQLValueAsync,
+	Registry, ScalarValue, Selection,
 };
 use std::collections::HashMap;
 
@@ -29,6 +30,19 @@ impl QueryFieldFactory {
 		}
 
 		field
+	}
+
+	pub fn new_resolver<'a, S>(
+		field_name: &'a str,
+		arguments: &'a Arguments<S>,
+	) -> QueryFieldResolver<'a, S>
+	where
+		S: ScalarValue + Send + Sync,
+	{
+		QueryFieldResolver {
+			field_name,
+			arguments,
+		}
 	}
 }
 
@@ -169,5 +183,46 @@ where
 		let value = self.properties.get(field_name).unwrap();
 
 		executor.resolve(&(), &value)
+	}
+}
+
+/// Phantom GraphQLValue just to implement field resolution
+/// This type won't be shown on the Schema
+pub struct QueryFieldResolver<'a, S>
+where
+	S: ScalarValue,
+{
+	field_name: &'a str,
+	arguments: &'a Arguments<'a, S>,
+}
+
+impl<'a, S> GraphQLValue<S> for QueryFieldResolver<'a, S>
+where
+	S: ScalarValue,
+{
+	type Context = ();
+	type TypeInfo = ();
+
+	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+		None
+	}
+}
+
+impl<'a, S> GraphQLValueAsync<S> for QueryFieldResolver<'a, S>
+where
+	S: ScalarValue + Send + Sync,
+{
+	fn resolve_async<'b>(
+		&'b self,
+		info: &'b Self::TypeInfo,
+		selection_set: Option<&'b [Selection<S>]>,
+		executor: &'b Executor<Self::Context, S>,
+	) -> BoxFuture<'b, ExecutionResult<S>> {
+		println!(
+			"{}\n{:#?}\n{:#?}",
+			self.field_name, selection_set, self.arguments
+		);
+
+		todo!()
 	}
 }
