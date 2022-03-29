@@ -1,9 +1,6 @@
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Field, MetaType};
-use juniper::{
-	Arguments, BoxFuture, ExecutionResult, Executor, GraphQLType, GraphQLValue, GraphQLValueAsync,
-	Registry, ScalarValue, Selection,
-};
+use juniper::{Arguments, BoxFuture, ExecutionResult, Executor, GraphQLType, GraphQLValue, GraphQLValueAsync, Object, Registry, ScalarValue, Selection, Spanning, Value};
 use std::collections::HashMap;
 
 use crate::api::schema::operations::{Operation, OperationData};
@@ -223,6 +220,53 @@ where
 			self.field_name, selection_set, self.arguments
 		);
 
-		todo!()
+		Box::pin(resolve_graphql_field(
+			self.field_name,
+			self.arguments,
+			selection_set.unwrap(),
+			executor
+		))
 	}
+}
+
+#[async_recursion::async_recursion]
+async fn resolve_graphql_field<'a, S>(
+	field_name: &str,
+	arguments: &'a Arguments<'a, S>,
+	selection_set: &'a [Selection<'a, S>],
+	executor: &'a Executor<'a, 'a, (), S>,
+) -> ExecutionResult<S>
+where
+	S: ScalarValue + Send + Sync,
+{
+	use juniper::futures::stream::{FuturesOrdered, StreamExt as _};
+
+	let mut object = Object::<S>::with_capacity(selection_set.len());
+
+	for selection in selection_set {
+		match *selection {
+			Selection::Field(Spanning {
+								 item: ref f,
+								 ..
+							 }) => {
+
+				let response_name = f.alias.as_ref().unwrap_or(&f.name).item;
+
+				if f.name.item == "__typename" {
+					continue;
+				}
+
+				let response_name = response_name.to_string();
+
+				println!("{}", response_name);
+
+				if let Some(inner_selection_set) = &f.selection_set {
+					resolve_graphql_field(field_name, arguments, inner_selection_set, executor).await?;
+				}
+			}
+			_ => unreachable!()
+		}
+	}
+
+	Ok(juniper::Value::<S>::Object(juniper::Object::with_capacity(10)))
 }
