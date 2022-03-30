@@ -70,7 +70,7 @@ where
 		let mut queries = Vec::new();
 
 		for (name, operation) in info.operation_registry.get_operations() {
-			queries.push(QueryFieldFactory::new(name, &operation, registry));
+			queries.push(QueryFieldFactory::new(name, operation, registry));
 		}
 
 		registry

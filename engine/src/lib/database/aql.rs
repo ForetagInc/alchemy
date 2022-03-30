@@ -5,28 +5,30 @@ use crate::lib::database::api::DbEntity;
 
 pub struct AQLQuery<'a> {
 	pub properties: Vec<AQLProperty>,
-	pub filter: Box<dyn AQLNode>,
+	pub filter: Option<Box<dyn AQLNode>>,
 	pub parameters: HashMap<&'a str, Value>,
+	pub limit: u32,
 }
 
 impl<'a> AQLQuery<'a> {
-	pub fn new(filter: Box<dyn AQLNode>) -> Box<AQLQuery<'a>> {
+	pub fn new() -> Box<AQLQuery<'a>> {
 		Box::new(AQLQuery {
-			filter,
 			properties: Vec::new(),
+			filter: None,
 			parameters: HashMap::new(),
+			limit: 0,
 		})
 	}
 
-	pub fn to_aql(&self, limit: u32) -> String {
+	pub fn to_aql(&self) -> String {
 		format!(
 			"
 		FOR a IN @@collection
-			FILTER {}
+			{}
 				LIMIT {}
 		RETURN {}",
-			self.filter.describe(),
-			limit,
+			self.describe_filter(),
+			self.limit,
 			self.describe_parameters("a")
 		)
 	}
@@ -42,6 +44,14 @@ impl<'a> AQLQuery<'a> {
 				.collect::<Vec<String>>()
 				.join(",\n")
 		)
+	}
+
+	fn describe_filter(&self) -> String {
+		return if let Some(f) = &self.filter {
+			format!("FILTER {}", f.describe())
+		} else {
+			"".to_string()
+		}
 	}
 }
 

@@ -5,7 +5,7 @@ use juniper::{
 	Registry, ScalarValue, Selection, Spanning,
 };
 
-use crate::api::schema::operations::{Operation, OperationData};
+use crate::api::schema::operations::{Operation, OperationData, OperationEntry};
 use crate::api::schema::QueryData;
 use crate::lib::database::api::{DbProperty, DbRelationship, DbRelationshipType, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery};
@@ -13,18 +13,19 @@ use crate::lib::database::aql::{AQLProperty, AQLQuery};
 pub struct QueryFieldFactory;
 
 impl QueryFieldFactory {
-	pub fn new<'a, S, T>(
+	pub fn new<'a, S>(
 		name: &str,
-		operation: &Box<T>,
+		operation: &OperationEntry<S>,
 		registry: &mut Registry<'a, S>,
 	) -> Field<'a, S>
 	where
 		S: ScalarValue,
-		T: Operation<S> + ?Sized,
 	{
-		let mut field = registry.field::<QueryField>(name, &operation.get_data());
+		let mut field = registry.field::<QueryField>(name, &operation.data);
 
-		for arg in operation.get_arguments(registry) {
+		let args = operation.arguments_closure;
+
+		for arg in args(registry) {
 			field = field.argument(arg);
 		}
 
@@ -112,7 +113,7 @@ where
 fn build_field_from_relationship<'r, S>(
 	registry: &mut Registry<'r, S>,
 	relationship: &DbRelationship,
-	info: &OperationData,
+	info: &OperationData<S>,
 ) -> Field<'r, S>
 where
 	S: ScalarValue,
@@ -164,7 +165,7 @@ where
 	S: ScalarValue,
 {
 	type Context = ();
-	type TypeInfo = OperationData;
+	type TypeInfo = OperationData<S>;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)
@@ -226,9 +227,7 @@ async fn resolve_graphql_field<'a, S>(
 where
 	S: ScalarValue + Send + Sync,
 {
-	let operation = info.operation_registry.get_operation(field_name);
-
-	let mut query = AQLQuery::new(Box::new(operation.get_aql_filter()));
+	let mut query = AQLQuery::new();
 
 	for selection in selection_set {
 		match *selection {

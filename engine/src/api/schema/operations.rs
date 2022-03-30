@@ -23,7 +23,17 @@ pub struct OperationRegistry<S>
 where
 	S: ScalarValue + Send + Sync,
 {
-	operations: HashMap<String, Box<dyn Operation<S>>>,
+	operations: HashMap<String, OperationEntry<S>>,
+}
+
+pub struct OperationEntry<S>
+where
+	S: ScalarValue
+{
+	pub closure: for<'a> fn(&'a OperationData<S>, &'a juniper::Arguments<S>, Box<AQLQuery<'a>>) -> FutureType<'a, S>,
+	pub arguments_closure: for<'a> fn(&mut Registry<'a, S>) -> Vec<Argument<'a, S>>,
+
+	pub data: Arc<OperationData<S>>
 }
 
 impl<S> OperationRegistry<S>
@@ -42,10 +52,15 @@ where
 		arguments: &'b Arguments<S>,
 		query: Box<AQLQuery<'b>>,
 	) -> Option<FutureType<'b, S>> {
-		self.operations.get(key).map(|o| o.call(arguments, query))
+		self.operations.get(key)
+			.map(|o| {
+				let closure = o.closure;
+
+				closure(&o.data, arguments, query)
+			})
 	}
 
-	pub fn get_operations(&self) -> &HashMap<String, Box<dyn Operation<S>>> {
+	pub fn get_operations(&self) -> &HashMap<String, OperationEntry<S>> {
 		&self.operations
 	}
 
@@ -54,29 +69,46 @@ where
 		entity: Arc<DbEntity>,
 		relationships: Arc<Vec<DbRelationship>>,
 	) {
-		vec![self.register(Get(
-			Arc::new(OperationData {
-				entity: entity.clone(),
-				relationships: relationships.clone(),
-			}),
-			PhantomData::default(),
-		))];
+		let data = Arc::new(OperationData {
+			entity: entity.clone(),
+			relationships: relationships.clone(),
+
+			_phantom: Default::default()
+		});
+
+		vec![
+			self.register::<Get>(data)
+		];
 	}
 
-	fn register<T: 'static>(&mut self, operation: T) -> String
+	fn register<T: 'static>(&mut self, data: Arc<OperationData<S>>) -> String
 	where
 		T: Operation<S>,
 	{
-		let k = operation.get_operation_name();
+		let k = T::get_operation_name(&data);
 
-		self.operations.insert(k.clone(), Box::new(operation));
+		self.operations.insert(k.clone(), OperationEntry {
+			closure: T::call,
+			arguments_closure: T::get_arguments,
+			data
+		});
 
 		k
 	}
 
-	pub fn get_operation(&self, field_name: &str) -> &dyn Operation<S> {
-		self.operations.get(field_name).unwrap().as_ref()
+	pub fn get_operation(&self, field_name: &str) -> &OperationEntry<S> {
+		self.operations.get(field_name).unwrap()
 	}
+}
+
+pub struct OperationData<S>
+where
+	S: ScalarValue
+{
+	pub entity: Arc<DbEntity>,
+	pub relationships: Arc<Vec<DbRelationship>>,
+
+	_phantom: PhantomData<S>
 }
 
 pub trait Operation<S>
@@ -84,34 +116,17 @@ where
 	S: ScalarValue,
 	Self: Send + Sync,
 {
-	fn call<'b>(&'b self, arguments: &'b Arguments<S>, query: Box<AQLQuery<'b>>) -> FutureType<'b, S>;
+	fn call<'b>(
+		data: &'b OperationData<S>,
+		arguments: &'b Arguments<S>,
+		query: Box<AQLQuery<'b>>,
+	) -> FutureType<'b, S>;
 
-	fn get_operation_name(&self) -> String;
+	fn get_operation_name(data: &OperationData<S>) -> String;
 
-	fn get_entity(&self) -> Arc<DbEntity>;
-
-	fn get_relationships(&self) -> Arc<Vec<DbRelationship>>;
-
-	fn get_data(&self) -> Arc<OperationData>;
-
-	fn get_arguments<'r>(&self, registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>>;
-
-	fn get_aql_filter(&self) -> AQLFilter;
-
-	fn get_collection_name(type_name: &str) -> String
-	where
-		Self: Sized,
-	{
-		pluralizer::pluralize(
-			type_name.to_case(convert_case::Case::Snake).as_str(),
-			2,
-			false,
-		)
-	}
+	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>>;
 
 	fn get_relationship_edge_name(relationship: &DbRelationship) -> String
-	where
-		Self: Sized,
 	{
 		format!(
 			"{}_{}",
@@ -163,11 +178,6 @@ where
 	}
 }
 
-pub struct OperationData {
-	pub entity: Arc<DbEntity>,
-	pub relationships: Arc<Vec<DbRelationship>>,
-}
-
 fn convert_json_to_juniper_value<S>(json: &JsonValue) -> Value<S>
 where
 	S: ScalarValue + Send + Sync,
@@ -177,19 +187,29 @@ where
 	todo!()
 }
 
-pub struct Get<S>(Arc<OperationData>, PhantomData<S>);
+pub struct Get;
 
-impl<S> Operation<S> for Get<S>
+impl<S> Operation<S> for Get
 where
 	S: ScalarValue + Send + Sync,
 {
-	fn call<'b>(&'b self, arguments: &'b Arguments<S>, query: Box<AQLQuery<'b>>) -> FutureType<'b, S> {
-		let entity = self.get_entity();
+	fn call<'b>(
+		data: &'b OperationData<S>,
+		arguments: &'b Arguments<S>,
+		mut query: Box<AQLQuery<'b>>,
+	) -> FutureType<'b, S> {
+		let entity = &data.entity;
+		let collection = &entity.collection_name;
 
-		let collection = Self::get_collection_name(&entity.name);
+		query.filter = Some(Box::new(AQLFilter {
+			left_node: Box::new(AQLQueryParameter(format!("{}.`_key`", "a"))),
+			operation: AQLOperation::EQUAL,
+			right_node: Box::new(AQLQueryBind("id")),
+		}));
+		query.limit = 1;
 
 		Box::pin(async move {
-			let query_str = query.to_aql(1);
+			let query_str = query.to_aql();
 
 			println!("{}", &query_str);
 
@@ -224,11 +244,12 @@ where
 		})
 	}
 
-	fn get_operation_name(&self) -> String {
+	fn get_operation_name(data: &OperationData<S>) -> String {
 		format!(
 			"get{}",
 			pluralizer::pluralize(
-				self.get_entity()
+				data
+					.entity
 					.name
 					.to_case(convert_case::Case::Pascal)
 					.as_str(),
@@ -238,30 +259,9 @@ where
 		)
 	}
 
-	fn get_entity(&self) -> Arc<DbEntity> {
-		self.0.entity.clone()
-	}
-
-	fn get_relationships(&self) -> Arc<Vec<DbRelationship>> {
-		self.0.relationships.clone()
-	}
-
-	fn get_data(&self) -> Arc<OperationData> {
-		self.0.clone()
-	}
-
-	fn get_arguments<'r>(&self, registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
-		vec![registry.arg::<ID>("id", &())]
-	}
-
-	fn get_aql_filter(&self) -> AQLFilter {
-		AQLFilter {
-			left_node: Box::new(AQLQueryParameter(format!(
-				"{}.`_key`",
-				"a"
-			))),
-			operation: AQLOperation::EQUAL,
-			right_node: Box::new(AQLQueryBind("id")),
-		}
+	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
+		vec![
+			registry.arg::<ID>("id", &())
+		]
 	}
 }
