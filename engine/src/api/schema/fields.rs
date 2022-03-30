@@ -7,8 +7,8 @@ use juniper::{
 
 use crate::api::schema::operations::{OperationData, OperationEntry};
 use crate::api::schema::QueryData;
-use crate::lib::database::api::{DbProperty, DbRelationship, DbRelationshipType, DbScalarType};
-use crate::lib::database::aql::{AQLProperty, AQLQuery};
+use crate::lib::database::api::{DbProperty, DbRelationship, DbRelationshipDirection, DbRelationshipType, DbScalarType};
+use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryRelationship};
 
 pub struct QueryFieldFactory;
 
@@ -208,8 +208,7 @@ where
 			info,
 			self.field_name,
 			self.arguments,
-			selection_set.unwrap(),
-			None
+			selection_set.unwrap()
 		))
 	}
 }
@@ -218,11 +217,28 @@ async fn resolve_graphql_field<'a, S>(
 	info: &'a QueryData<S>,
 	field_name: &str,
 	arguments: &'a Arguments<'a, S>,
-	selection_set: &'a [Selection<'a, S>],
-	query_id: Option<u32>
+	selection_set: &'a [Selection<'a, S>]
 ) -> ExecutionResult<S>
 where
 	S: ScalarValue + Send + Sync,
+{
+	let query = get_query_from_graphql(selection_set, None);
+
+	let val = info
+		.operation_registry
+		.call_by_key(field_name, arguments, query)
+		.unwrap()
+		.await?;
+
+	Ok(val)
+}
+
+fn get_query_from_graphql<'a, S>(
+	selection_set: &'a [Selection<'a, S>],
+	query_id: Option<u32>
+) -> AQLQuery
+	where
+		S: ScalarValue + Send + Sync,
 {
 	let mut query = AQLQuery::new(query_id.unwrap_or(1));
 
@@ -237,24 +253,25 @@ where
 
 				let response_name = response_name.to_string();
 
-				query.properties.push(AQLProperty {
-					name: response_name,
-				});
+				if let Some(inner_selection_set) = &f.selection_set {
+					let mut inner_query = get_query_from_graphql(inner_selection_set, Some(query.id + 1));
 
-				// if let Some(inner_selection_set) = &f.selection_set {
-				// 	resolve_graphql_field(info, field_name, arguments, inner_selection_set, executor)
-				// 		.await?;
-				// }
+					inner_query.relationship = Some(AQLQueryRelationship {
+						edge: "account_friends".to_string(),
+						variable_name: query.get_variable_name(),
+						direction: DbRelationshipDirection::Any
+					});
+
+					query.relations.insert(response_name.clone(), inner_query);
+				} else {
+					query.properties.push(AQLProperty {
+						name: response_name,
+					});
+				}
 			}
 			_ => unreachable!(),
 		}
 	}
 
-	let val = info
-		.operation_registry
-		.call_by_key(field_name, arguments, query)
-		.unwrap()
-		.await?;
-
-	Ok(val)
+	query
 }

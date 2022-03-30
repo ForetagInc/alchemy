@@ -27,7 +27,7 @@ pub struct OperationEntry<S>
 where
 	S: ScalarValue
 {
-	pub closure: for<'a> fn(&'a OperationData<S>, &'a juniper::Arguments<S>, Box<AQLQuery<'a>>) -> FutureType<'a, S>,
+	pub closure: for<'a> fn(&'a OperationData<S>, &'a juniper::Arguments<S>, AQLQuery<'a>) -> FutureType<'a, S>,
 	pub arguments_closure: for<'a> fn(&mut Registry<'a, S>) -> Vec<Argument<'a, S>>,
 
 	pub data: Arc<OperationData<S>>
@@ -47,7 +47,7 @@ where
 		&'b self,
 		key: &str,
 		arguments: &'b Arguments<S>,
-		query: Box<AQLQuery<'b>>,
+		query: AQLQuery<'b>,
 	) -> Option<FutureType<'b, S>> {
 		self.operations.get(key)
 			.map(|o| {
@@ -112,7 +112,7 @@ where
 	fn call<'b>(
 		data: &'b OperationData<S>,
 		arguments: &'b Arguments<S>,
-		query: Box<AQLQuery<'b>>,
+		query: AQLQuery<'b>,
 	) -> FutureType<'b, S>;
 
 	fn get_operation_name(data: &OperationData<S>) -> String;
@@ -208,7 +208,7 @@ where
 	fn call<'b>(
 		data: &'b OperationData<S>,
 		arguments: &'b Arguments<S>,
-		mut query: Box<AQLQuery<'b>>,
+		mut query: AQLQuery<'b>,
 	) -> FutureType<'b, S> {
 		let time = std::time::Instant::now();
 
@@ -229,8 +229,8 @@ where
 
 			let entries_query = AqlQuery::builder()
 				.query(&query_str)
-				.bind_var("@collection", collection.clone())
-				.bind_var("arg_1_id", arguments.get::<String>("id").unwrap());
+				.bind_var("@collection".to_string(), collection.clone())
+				.bind_var(query.get_argument("id"), arguments.get::<String>("id").unwrap());
 
 			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
 				.get()

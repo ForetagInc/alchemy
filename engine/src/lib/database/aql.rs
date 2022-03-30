@@ -1,59 +1,99 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
+use crate::lib::database::api::DbRelationshipDirection;
+
+pub struct AQLQueryRelationship {
+	pub edge: String,
+	pub direction: DbRelationshipDirection,
+	pub variable_name: String
+}
+
 pub struct AQLQuery<'a> {
 	pub properties: Vec<AQLProperty>,
 	pub filter: Option<Box<dyn AQLNode>>,
 	pub parameters: HashMap<&'a str, Value>,
+	pub relations: HashMap<String, AQLQuery<'a>>,
 	pub limit: u32,
+	pub relationship: Option<AQLQueryRelationship>,
 
 	pub id: u32,
 }
 
 impl<'a> AQLQuery<'a> {
-	pub fn new(id: u32) -> Box<AQLQuery<'a>> {
-		Box::new(AQLQuery {
+	pub fn new(id: u32) -> AQLQuery<'a> {
+		AQLQuery {
 			properties: Vec::new(),
 			filter: None,
 			parameters: HashMap::new(),
+			relations: HashMap::new(),
 			limit: 0,
+			relationship: None,
 			id
-		})
+		}
 	}
 
 	pub fn to_aql(&self) -> String {
-		format!(
-			"
-		FOR i_{} IN @@collection
-			{}
-				LIMIT {}
-		RETURN {}",
-			self.id,
-			self.describe_filter(),
-			self.limit,
-			self.describe_parameters()
-		)
+		if let Some(ref r) = self.relationship {
+			format!(
+				"FOR {} IN {} {} {} {} {} RETURN {}",
+				self.get_variable_name(),
+				r.direction.to_string(),
+				r.variable_name,
+				r.edge,
+				self.describe_filter(),
+				self.describe_limit(),
+				self.describe_parameters()
+			)
+		} else {
+			format!(
+				"FOR {} IN @@collection {} {} RETURN {}",
+				self.get_variable_name(),
+				self.describe_filter(),
+				self.describe_limit(),
+				self.describe_parameters()
+			)
+		}
 	}
 
 	pub fn describe_parameters(&self) -> String {
 		format!(
-			"{{
-			{}
-		}}",
+			"{{{}}}",
 			self.properties
 				.iter()
-				.map(|p| format!("\"{name}\": i_{}.`{name}`", self.id, name = p.name))
+				.map(|p| format!("\"{name}\": {}.`{name}`", self.get_variable_name(), name = p.name))
+				.chain(self
+					.relations
+					.iter()
+					.map(|(key, query)| format!("\"{}\": ({})", key, query.to_aql()))
+				)
 				.collect::<Vec<String>>()
-				.join(",\n")
+				.join(",")
 		)
 	}
 
+	fn describe_limit(&self) -> String {
+		if self.limit > 0 {
+			format!("LIMIT {}", self.limit)
+		} else {
+			"".to_string()
+		}
+	}
+
 	fn describe_filter(&self) -> String {
-		return if let Some(f) = &self.filter {
+		if let Some(f) = &self.filter {
 			format!("FILTER {}", f.describe(self.id))
 		} else {
 			"".to_string()
 		}
+	}
+
+	pub fn get_argument(&self, name: &str) -> String {
+		format!("arg_{}_{}", self.id, name)
+	}
+
+	pub fn get_variable_name(&self) -> String {
+		format!("i_{}", self.id)
 	}
 }
 

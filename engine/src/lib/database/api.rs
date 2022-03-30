@@ -77,7 +77,35 @@ impl From<&str> for DbRelationshipType {
 			"one_to_one" => Self::OneToOne,
 			"one_to_many" => Self::OneToMany,
 			"many_to_many" => Self::ManyToMany,
-			&_ => Self::OneToOne,
+			&_ => unreachable!(),
+		};
+	}
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum DbRelationshipDirection {
+	Inbound,
+	Outbound,
+	Any,
+}
+
+impl ToString for DbRelationshipDirection {
+	fn to_string(&self) -> String {
+		match *self {
+			DbRelationshipDirection::Inbound => "INBOUND",
+			DbRelationshipDirection::Outbound => "OUTBOUND",
+			DbRelationshipDirection::Any => "ANY"
+		}.to_string()
+	}
+}
+
+impl From<&str> for DbRelationshipDirection {
+	fn from(value: &str) -> Self {
+		return match value {
+			"outbound" => Self::Inbound,
+			"inbound" => Self::Outbound,
+			"any" => Self::Any,
+			&_ => unreachable!(),
 		};
 	}
 }
@@ -88,6 +116,7 @@ pub struct DbRelationship {
 	pub from: Arc<DbEntity>,
 	pub to: Arc<DbEntity>,
 	pub relationship_type: DbRelationshipType,
+	pub relationship_direction: DbRelationshipDirection,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -227,6 +256,7 @@ pub async fn generate_sdl() -> DbMap {
 		let from = entry["from"].as_str().unwrap();
 		let to = entry["to"].as_str().unwrap();
 		let relationship_type: DbRelationshipType = entry["type"].as_str().unwrap().into();
+		let relationship_direction: DbRelationshipDirection = entry["direction"].as_str().unwrap().into();
 
 		if let (Some(from_entity), Some(to_entity)) =
 			(collections_by_keys.get(from), collections_by_keys.get(to))
@@ -236,6 +266,7 @@ pub async fn generate_sdl() -> DbMap {
 				from: from_entity.clone(),
 				to: to_entity.clone(),
 				relationship_type,
+				relationship_direction
 			})
 		}
 	}
