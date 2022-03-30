@@ -1,17 +1,14 @@
-use crate::api::schema::errors::NotFoundError;
 use convert_case::Casing;
 use juniper::meta::Argument;
-use juniper::{
-	Arguments, BoxFuture, ExecutionResult, GraphQLValue, IntoFieldError, Registry, ScalarValue,
-	Value, ID,
-};
+use juniper::{Arguments, BoxFuture, ExecutionResult, IntoFieldError, Registry, ScalarValue, Value, ID, Object};
 use rust_arango::{AqlQuery, ClientError};
-use serde_json::Value as JsonValue;
+use serde_json::{Value as JsonValue, Map as JsonMap};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use crate::lib::database::api::{DbEntity, DbRelationship, DbScalarType};
+use crate::api::schema::errors::NotFoundError;
+use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
 	AQLFilter, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
 };
@@ -95,10 +92,6 @@ where
 
 		k
 	}
-
-	pub fn get_operation(&self, field_name: &str) -> &OperationEntry<S> {
-		self.operations.get(field_name).unwrap()
-	}
 }
 
 pub struct OperationData<S>
@@ -144,47 +137,39 @@ where
 	}
 }
 
-fn map_value_to_type<S>(
-	value: &JsonValue,
-	db_type: &DbScalarType,
-) -> Box<dyn GraphQLValue<S, Context = (), TypeInfo = ()> + Send>
-where
-	S: ScalarValue,
-{
-	match db_type {
-		DbScalarType::Enum(_) | DbScalarType::String => {
-			Box::new(value.as_str().map(|s| s.to_string()))
-		}
-		DbScalarType::Array(v) => {
-			let content = match value.as_array() {
-				Some(arr) => {
-					let mut values = Vec::new();
-
-					for item in arr {
-						values.push(map_value_to_type::<S>(item, &*v))
-					}
-
-					Some(values)
-				}
-				None => None,
-			};
-
-			Box::new(content)
-		}
-		DbScalarType::Object => Box::new("object".to_string()),
-		DbScalarType::Float => Box::new(value.as_f64()),
-		DbScalarType::Int => Box::new(value.as_i64().map(|v| v as i32)),
-		DbScalarType::Boolean => Box::new(value.as_bool()),
-	}
-}
-
-fn convert_json_to_juniper_value<S>(json: &JsonValue) -> Value<S>
+fn convert_json_to_juniper_value<S>(data: &JsonMap<String, JsonValue>) -> Value<S>
 where
 	S: ScalarValue + Send + Sync,
 {
-	println!("{}", json);
+	let mut object = Object::<S>::with_capacity(data.len());
 
-	todo!()
+	fn convert<S>(val: &JsonValue) -> Value<S>
+		where
+			S: ScalarValue + Send + Sync
+	{
+		match val {
+			JsonValue::Null => Value::null(),
+			JsonValue::Bool(v) => Value::scalar(v.to_owned()),
+			JsonValue::Number(n) => {
+				return if n.is_i64() {
+					Value::scalar(n.as_i64().unwrap() as i32)
+				} else if n.is_f64() {
+					Value::scalar(n.as_f64().unwrap())
+				} else {
+					Value::scalar(n.as_u64().unwrap() as i32)
+				}
+			},
+			JsonValue::String(s) => Value::scalar(s.to_owned()),
+			JsonValue::Array(a) => Value::list(a.iter().map(|i| convert(i)).collect()),
+			JsonValue::Object(ref o) => convert_json_to_juniper_value(o)
+		}
+	}
+
+	for (key, val) in data {
+		object.add_field(key, convert(val));
+	}
+
+	Value::Object(object)
 }
 
 pub struct Get;
@@ -198,11 +183,13 @@ where
 		arguments: &'b Arguments<S>,
 		mut query: Box<AQLQuery<'b>>,
 	) -> FutureType<'b, S> {
+		let time = std::time::Instant::now();
+
 		let entity = &data.entity;
 		let collection = &entity.collection_name;
 
 		query.filter = Some(Box::new(AQLFilter {
-			left_node: Box::new(AQLQueryParameter(format!("{}.`_key`", "a"))),
+			left_node: Box::new(AQLQueryParameter("_key".to_string())),
 			operation: AQLOperation::EQUAL,
 			right_node: Box::new(AQLQueryBind("id")),
 		}));
@@ -213,10 +200,10 @@ where
 
 			println!("{}", &query_str);
 
-			let mut entries_query = AqlQuery::builder()
+			let entries_query = AqlQuery::builder()
 				.query(&query_str)
 				.bind_var("@collection", collection.clone())
-				.bind_var("id", arguments.get::<String>("id").unwrap());
+				.bind_var("arg_1_id", arguments.get::<String>("id").unwrap());
 
 			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
 				.get()
@@ -227,10 +214,18 @@ where
 
 			let not_found_error = NotFoundError::new(entity.name.clone()).into_field_error();
 
+			println!("SQL: {:?}", time.elapsed());
+
 			return match entries {
 				Ok(data) => {
 					if let Some(first) = data.first() {
-						return Ok(convert_json_to_juniper_value(first));
+						let time2 = std::time::Instant::now();
+
+						let ret = Ok(convert_json_to_juniper_value(first.as_object().unwrap()));
+
+						println!("Conversion: {:?}", time2.elapsed());
+
+						return  ret;
 					}
 
 					Err(not_found_error)

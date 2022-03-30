@@ -5,7 +5,7 @@ use juniper::{
 	Registry, ScalarValue, Selection, Spanning,
 };
 
-use crate::api::schema::operations::{Operation, OperationData, OperationEntry};
+use crate::api::schema::operations::{OperationData, OperationEntry};
 use crate::api::schema::QueryData;
 use crate::lib::database::api::{DbProperty, DbRelationship, DbRelationshipType, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery};
@@ -189,7 +189,7 @@ where
 	type Context = ();
 	type TypeInfo = QueryData<S>;
 
-	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+	fn type_name<'i>(&self, _: &'i Self::TypeInfo) -> Option<&'i str> {
 		None
 	}
 }
@@ -204,16 +204,12 @@ where
 		selection_set: Option<&'b [Selection<S>]>,
 		_executor: &'b Executor<Self::Context, S>,
 	) -> BoxFuture<'b, ExecutionResult<S>> {
-		println!(
-			"{}\n{:#?}\n{:#?}",
-			self.field_name, selection_set, self.arguments
-		);
-
 		Box::pin(resolve_graphql_field(
 			info,
 			self.field_name,
 			self.arguments,
 			selection_set.unwrap(),
+			None
 		))
 	}
 }
@@ -223,11 +219,12 @@ async fn resolve_graphql_field<'a, S>(
 	field_name: &str,
 	arguments: &'a Arguments<'a, S>,
 	selection_set: &'a [Selection<'a, S>],
+	query_id: Option<u32>
 ) -> ExecutionResult<S>
 where
 	S: ScalarValue + Send + Sync,
 {
-	let mut query = AQLQuery::new();
+	let mut query = AQLQuery::new(query_id.unwrap_or(1));
 
 	for selection in selection_set {
 		match *selection {
