@@ -16,6 +16,16 @@ use crate::lib::database::api::*;
 
 pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
+pub fn owns_relationship(relationship: &DbRelationship, entity_name: &str) -> bool {
+	match relationship.direction {
+		DbRelationshipDirection::Inbound => relationship.to.name == entity_name,
+		DbRelationshipDirection::Outbound => relationship.from.name == entity_name,
+		DbRelationshipDirection::Any => {
+			relationship.from.name == entity_name || relationship.to.name == entity_name
+		}
+	}
+}
+
 pub fn schema(map: DbMap) -> Schema {
 	let mut operation_registry = OperationRegistry::new();
 
@@ -25,7 +35,7 @@ pub fn schema(map: DbMap) -> Schema {
 				let mut relationships = Vec::new();
 
 				for relationship in &map.relationships {
-					if relationship.from == t {
+					if owns_relationship(&relationship, &t.name) {
 						relationships.push(relationship.clone())
 					}
 				}
@@ -40,7 +50,10 @@ pub fn schema(map: DbMap) -> Schema {
 		Query,
 		EmptyMutation::new(),
 		EmptySubscription::new(),
-		QueryData { operation_registry },
+		QueryData {
+			operation_registry,
+			relationships: map.relationships.clone(),
+		},
 		(),
 		(),
 	)
@@ -51,6 +64,7 @@ where
 	S: ScalarValue + Send + Sync,
 {
 	operation_registry: OperationRegistry<S>,
+	relationships: Vec<DbRelationship>,
 }
 
 pub struct Query;

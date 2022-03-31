@@ -1,8 +1,10 @@
 use convert_case::Casing;
 use juniper::meta::Argument;
-use juniper::{Arguments, BoxFuture, ExecutionResult, IntoFieldError, Registry, ScalarValue, Value, ID, Object};
+use juniper::{
+	Arguments, BoxFuture, ExecutionResult, IntoFieldError, Object, Registry, ScalarValue, Value, ID,
+};
 use rust_arango::{AqlQuery, ClientError};
-use serde_json::{Value as JsonValue, Map as JsonMap, Number as JsonNumber};
+use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -25,12 +27,16 @@ where
 
 pub struct OperationEntry<S>
 where
-	S: ScalarValue
+	S: ScalarValue,
 {
-	pub closure: for<'a> fn(&'a OperationData<S>, &'a juniper::Arguments<S>, AQLQuery<'a>) -> FutureType<'a, S>,
+	pub closure: for<'a> fn(
+		&'a OperationData<S>,
+		&'a juniper::Arguments<S>,
+		AQLQuery<'a>,
+	) -> FutureType<'a, S>,
 	pub arguments_closure: for<'a> fn(&mut Registry<'a, S>) -> Vec<Argument<'a, S>>,
 
-	pub data: Arc<OperationData<S>>
+	pub data: Arc<OperationData<S>>,
 }
 
 impl<S> OperationRegistry<S>
@@ -49,16 +55,19 @@ where
 		arguments: &'b Arguments<S>,
 		query: AQLQuery<'b>,
 	) -> Option<FutureType<'b, S>> {
-		self.operations.get(key)
-			.map(|o| {
-				let closure = o.closure;
+		self.operations.get(key).map(|o| {
+			let closure = o.closure;
 
-				closure(&o.data, arguments, query)
-			})
+			closure(&o.data, arguments, query)
+		})
 	}
 
 	pub fn get_operations(&self) -> &HashMap<String, OperationEntry<S>> {
 		&self.operations
+	}
+
+	pub fn get_operation(&self, key: &str) -> Option<&OperationEntry<S>> {
+		self.operations.get(key)
 	}
 
 	pub fn register_entity(
@@ -70,12 +79,10 @@ where
 			entity: entity.clone(),
 			relationships: relationships.clone(),
 
-			_phantom: Default::default()
+			_phantom: Default::default(),
 		});
 
-		vec![
-			self.register::<Get>(data)
-		];
+		vec![self.register::<Get>(data)];
 	}
 
 	fn register<T: 'static>(&mut self, data: Arc<OperationData<S>>) -> String
@@ -84,11 +91,14 @@ where
 	{
 		let k = T::get_operation_name(&data);
 
-		self.operations.insert(k.clone(), OperationEntry {
-			closure: T::call,
-			arguments_closure: T::get_arguments,
-			data
-		});
+		self.operations.insert(
+			k.clone(),
+			OperationEntry {
+				closure: T::call,
+				arguments_closure: T::get_arguments,
+				data,
+			},
+		);
 
 		k
 	}
@@ -96,12 +106,12 @@ where
 
 pub struct OperationData<S>
 where
-	S: ScalarValue
+	S: ScalarValue,
 {
 	pub entity: Arc<DbEntity>,
 	pub relationships: Arc<Vec<DbRelationship>>,
 
-	_phantom: PhantomData<S>
+	_phantom: PhantomData<S>,
 }
 
 pub trait Operation<S>
@@ -119,8 +129,7 @@ where
 
 	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>>;
 
-	fn get_relationship_edge_name(relationship: &DbRelationship) -> String
-	{
+	fn get_relationship_edge_name(relationship: &DbRelationship) -> String {
 		format!(
 			"{}_{}",
 			pluralizer::pluralize(
@@ -169,7 +178,7 @@ where
 		let v = n.as_f64().unwrap();
 
 		Value::scalar(v)
-	}
+	};
 }
 
 fn convert_json_to_juniper_value<S>(data: &JsonMap<String, JsonValue>) -> Value<S>
@@ -179,8 +188,8 @@ where
 	let mut object = Object::<S>::with_capacity(data.len());
 
 	fn convert<S>(val: &JsonValue) -> Value<S>
-		where
-			S: ScalarValue + Send + Sync
+	where
+		S: ScalarValue + Send + Sync,
 	{
 		match val {
 			JsonValue::Null => Value::null(),
@@ -188,7 +197,7 @@ where
 			JsonValue::Number(n) => convert_number(n),
 			JsonValue::String(s) => Value::scalar(s.to_owned()),
 			JsonValue::Array(a) => Value::list(a.iter().map(|i| convert(i)).collect()),
-			JsonValue::Object(ref o) => convert_json_to_juniper_value(o)
+			JsonValue::Object(ref o) => convert_json_to_juniper_value(o),
 		}
 	}
 
@@ -230,7 +239,10 @@ where
 			let entries_query = AqlQuery::builder()
 				.query(&query_str)
 				.bind_var("@collection".to_string(), collection.clone())
-				.bind_var(query.get_argument("id"), arguments.get::<String>("id").unwrap());
+				.bind_var(
+					query.get_argument_key("id"),
+					arguments.get::<String>("id").unwrap(),
+				);
 
 			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
 				.get()
@@ -252,7 +264,7 @@ where
 
 						println!("Conversion: {:?}", time2.elapsed());
 
-						return  ret;
+						return ret;
 					}
 
 					Err(not_found_error)
@@ -270,8 +282,7 @@ where
 		format!(
 			"get{}",
 			pluralizer::pluralize(
-				data
-					.entity
+				data.entity
 					.name
 					.to_case(convert_case::Case::Pascal)
 					.as_str(),
@@ -282,8 +293,6 @@ where
 	}
 
 	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
-		vec![
-			registry.arg::<ID>("id", &())
-		]
+		vec![registry.arg::<ID>("id", &())]
 	}
 }

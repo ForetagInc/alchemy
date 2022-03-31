@@ -94,8 +94,9 @@ impl ToString for DbRelationshipDirection {
 		match *self {
 			DbRelationshipDirection::Inbound => "INBOUND",
 			DbRelationshipDirection::Outbound => "OUTBOUND",
-			DbRelationshipDirection::Any => "ANY"
-		}.to_string()
+			DbRelationshipDirection::Any => "ANY",
+		}
+		.to_string()
 	}
 }
 
@@ -113,10 +114,11 @@ impl From<&str> for DbRelationshipDirection {
 #[derive(Clone, PartialEq, Debug)]
 pub struct DbRelationship {
 	pub name: String,
+	pub edge: String,
 	pub from: Arc<DbEntity>,
 	pub to: Arc<DbEntity>,
 	pub relationship_type: DbRelationshipType,
-	pub relationship_direction: DbRelationshipDirection,
+	pub direction: DbRelationshipDirection,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -253,20 +255,23 @@ pub async fn generate_sdl() -> DbMap {
 
 	for entry in edges.clone().iter() {
 		let prop_name = entry["name"].as_str().unwrap();
+		let edge = entry["edge"].as_str().unwrap();
 		let from = entry["from"].as_str().unwrap();
 		let to = entry["to"].as_str().unwrap();
 		let relationship_type: DbRelationshipType = entry["type"].as_str().unwrap().into();
-		let relationship_direction: DbRelationshipDirection = entry["direction"].as_str().unwrap().into();
+		let relationship_direction: DbRelationshipDirection =
+			entry["direction"].as_str().unwrap().into();
 
 		if let (Some(from_entity), Some(to_entity)) =
 			(collections_by_keys.get(from), collections_by_keys.get(to))
 		{
 			sdl.relationships.push(DbRelationship {
 				name: prop_name.to_string(),
+				edge: edge.to_string(),
 				from: from_entity.clone(),
 				to: to_entity.clone(),
 				relationship_type,
-				relationship_direction
+				direction: relationship_direction,
 			})
 		}
 	}

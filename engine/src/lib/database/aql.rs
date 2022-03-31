@@ -6,7 +6,7 @@ use crate::lib::database::api::DbRelationshipDirection;
 pub struct AQLQueryRelationship {
 	pub edge: String,
 	pub direction: DbRelationshipDirection,
-	pub variable_name: String
+	pub variable_name: String,
 }
 
 pub struct AQLQuery<'a> {
@@ -29,7 +29,7 @@ impl<'a> AQLQuery<'a> {
 			relations: HashMap::new(),
 			limit: 0,
 			relationship: None,
-			id
+			id,
 		}
 	}
 
@@ -61,12 +61,16 @@ impl<'a> AQLQuery<'a> {
 			"{{{}}}",
 			self.properties
 				.iter()
-				.map(|p| format!("\"{name}\": {}.`{name}`", self.get_variable_name(), name = p.name))
-				.chain(self
-					.relations
-					.iter()
-					.map(|(key, query)| format!("\"{}\": ({})", key, query.to_aql()))
-				)
+				.map(|p| format!(
+					"\"{name}\": {}.`{name}`",
+					self.get_variable_name(),
+					name = p.name
+				))
+				.chain(self.relations.iter().map(|(key, query)| format!(
+					"\"{}\": ({})",
+					key,
+					query.to_aql()
+				)))
 				.collect::<Vec<String>>()
 				.join(",")
 		)
@@ -88,7 +92,7 @@ impl<'a> AQLQuery<'a> {
 		}
 	}
 
-	pub fn get_argument(&self, name: &str) -> String {
+	pub fn get_argument_key(&self, name: &str) -> String {
 		format!("arg_{}_{}", self.id, name)
 	}
 
