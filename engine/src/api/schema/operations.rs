@@ -1,5 +1,5 @@
 use convert_case::Casing;
-use juniper::meta::Argument;
+use juniper::meta::{Argument, Field};
 use juniper::{
 	Arguments, BoxFuture, ExecutionResult, IntoFieldError, Object, Registry, ScalarValue, Value, ID,
 };
@@ -10,6 +10,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::api::schema::errors::NotFoundError;
+use crate::api::schema::fields::Entity;
 use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
 	AQLFilter, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
@@ -35,6 +36,8 @@ where
 		AQLQuery<'a>,
 	) -> FutureType<'a, S>,
 	pub arguments_closure: for<'a> fn(&mut Registry<'a, S>) -> Vec<Argument<'a, S>>,
+	pub field_closure:
+		for<'a> fn(&mut Registry<'a, S>, name: &str, data: &OperationData<S>) -> Field<'a, S>,
 
 	pub data: Arc<OperationData<S>>,
 }
@@ -82,7 +85,10 @@ where
 			_phantom: Default::default(),
 		});
 
-		vec![self.register::<Get>(data)];
+		vec![
+			self.register::<Get>(data.clone()),
+			self.register::<GetAll>(data.clone()),
+		];
 	}
 
 	fn register<T: 'static>(&mut self, data: Arc<OperationData<S>>) -> String
@@ -96,6 +102,7 @@ where
 			OperationEntry {
 				closure: T::call,
 				arguments_closure: T::get_arguments,
+				field_closure: T::build_field,
 				data,
 			},
 		);
@@ -128,6 +135,12 @@ where
 	fn get_operation_name(data: &OperationData<S>) -> String;
 
 	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>>;
+
+	fn build_field<'r>(
+		registry: &mut Registry<'r, S>,
+		name: &str,
+		data: &OperationData<S>,
+	) -> Field<'r, S>;
 
 	fn get_relationship_edge_name(relationship: &DbRelationship) -> String {
 		format!(
@@ -229,7 +242,7 @@ where
 			operation: AQLOperation::EQUAL,
 			right_node: Box::new(AQLQueryBind("id")),
 		}));
-		query.limit = 1;
+		query.limit = Some(1);
 
 		Box::pin(async move {
 			let query_str = query.to_aql();
@@ -294,5 +307,103 @@ where
 
 	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
 		vec![registry.arg::<ID>("id", &())]
+	}
+
+	fn build_field<'r>(
+		registry: &mut Registry<'r, S>,
+		name: &str,
+		data: &OperationData<S>,
+	) -> Field<'r, S> {
+		registry.field::<Option<Entity>>(name, &data)
+	}
+}
+
+pub struct GetAll;
+
+impl<S> Operation<S> for GetAll
+where
+	S: ScalarValue + Send + Sync,
+{
+	fn call<'b>(
+		data: &'b OperationData<S>,
+		arguments: &'b Arguments<S>,
+		mut query: AQLQuery<'b>,
+	) -> FutureType<'b, S> {
+		let time = std::time::Instant::now();
+
+		let entity = &data.entity;
+		let collection = &entity.collection_name;
+
+		query.limit = arguments.get::<i32>("limit");
+
+		Box::pin(async move {
+			let query_str = query.to_aql();
+
+			println!("{}", &query_str);
+
+			let entries_query = AqlQuery::builder()
+				.query(&query_str)
+				.bind_var("@collection".to_string(), collection.clone());
+
+			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
+				.get()
+				.await
+				.database
+				.aql_query(entries_query.build())
+				.await;
+
+			let not_found_error = NotFoundError::new(entity.name.clone()).into_field_error();
+
+			println!("SQL: {:?}", time.elapsed());
+
+			return match entries {
+				Ok(data) => {
+					let mut output = Vec::<Value<S>>::new();
+
+					let time2 = std::time::Instant::now();
+
+					for datum in data {
+						output.push(convert_json_to_juniper_value(datum.as_object().unwrap()));
+					}
+
+					println!("Conversion: {:?}", time2.elapsed());
+
+					Ok(Value::list(output))
+				}
+				Err(e) => {
+					println!("{:?}", e);
+
+					Err(not_found_error)
+				}
+			};
+		})
+	}
+
+	fn get_operation_name(data: &OperationData<S>) -> String {
+		format!(
+			"getAll{}",
+			pluralizer::pluralize(
+				data.entity
+					.name
+					.to_case(convert_case::Case::Pascal)
+					.as_str(),
+				2,
+				false,
+			)
+		)
+	}
+
+	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
+		vec![
+			registry.arg::<Option<i32>>("limit", &())
+		]
+	}
+
+	fn build_field<'r>(
+		registry: &mut Registry<'r, S>,
+		name: &str,
+		data: &OperationData<S>,
+	) -> Field<'r, S> {
+		registry.field::<Vec<Entity>>(name, &data)
 	}
 }

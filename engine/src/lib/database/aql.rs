@@ -14,7 +14,7 @@ pub struct AQLQuery<'a> {
 	pub filter: Option<Box<dyn AQLNode>>,
 	pub parameters: HashMap<&'a str, Value>,
 	pub relations: HashMap<String, AQLQuery<'a>>,
-	pub limit: u32,
+	pub limit: Option<i32>,
 	pub relationship: Option<AQLQueryRelationship>,
 
 	pub id: u32,
@@ -27,7 +27,7 @@ impl<'a> AQLQuery<'a> {
 			filter: None,
 			parameters: HashMap::new(),
 			relations: HashMap::new(),
-			limit: 0,
+			limit: None,
 			relationship: None,
 			id,
 		}
@@ -77,8 +77,8 @@ impl<'a> AQLQuery<'a> {
 	}
 
 	fn describe_limit(&self) -> String {
-		if self.limit > 0 {
-			format!("LIMIT {}", self.limit)
+		if let Some(limit) = self.limit {
+			format!("LIMIT {}", limit)
 		} else {
 			"".to_string()
 		}

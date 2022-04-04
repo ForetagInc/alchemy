@@ -21,7 +21,9 @@ impl QueryFieldFactory {
 	where
 		S: ScalarValue,
 	{
-		let mut field = registry.field::<QueryField>(name, &operation.data);
+		let field_builder = operation.field_closure;
+
+		let mut field = field_builder(registry, name, &operation.data);
 
 		let args = operation.arguments_closure;
 
@@ -46,7 +48,7 @@ impl QueryFieldFactory {
 	}
 }
 
-pub struct QueryField;
+pub struct Entity;
 
 fn build_field_from_property<'r, S>(
 	registry: &mut Registry<'r, S>,
@@ -119,16 +121,14 @@ where
 	S: ScalarValue,
 {
 	return match relationship.relationship_type {
-		DbRelationshipType::OneToOne => {
-			registry.field::<QueryField>(relationship.name.as_str(), info)
-		}
+		DbRelationshipType::OneToOne => registry.field::<Entity>(relationship.name.as_str(), info),
 		DbRelationshipType::OneToMany | DbRelationshipType::ManyToMany => {
-			registry.field::<Vec<QueryField>>(relationship.name.as_str(), info)
+			registry.field::<Vec<Entity>>(relationship.name.as_str(), info)
 		}
 	};
 }
 
-impl<S> GraphQLType<S> for QueryField
+impl<S> GraphQLType<S> for Entity
 where
 	S: ScalarValue,
 {
@@ -155,12 +155,12 @@ where
 		}
 
 		registry
-			.build_object_type::<QueryField>(info, &fields)
+			.build_object_type::<Entity>(info, &fields)
 			.into_meta()
 	}
 }
 
-impl<S> GraphQLValue<S> for QueryField
+impl<S> GraphQLValue<S> for Entity
 where
 	S: ScalarValue,
 {
