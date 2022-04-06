@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use Alchemy, please site as below."
+authors:
+  - name: "Foretag"
+    email: "oss@engineering.foret.ag"
+    website: "engineering.foret.ag"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+title: "Alchemy"
+version: 1.0.0
+doi: 10.5281/zenodo.1234
+date-released: 2022-01-25
+url: "https://github.com/ForetagInc/Alchemy"
