@@ -1,3 +1,4 @@
+use crate::api::input::filter::{EntityFilter, EntityFilterData};
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{
@@ -35,7 +36,8 @@ where
 		&'a juniper::Arguments<S>,
 		AQLQuery<'a>,
 	) -> FutureType<'a, S>,
-	pub arguments_closure: for<'a> fn(&mut Registry<'a, S>) -> Vec<Argument<'a, S>>,
+	pub arguments_closure:
+		for<'a> fn(&mut Registry<'a, S>, data: &OperationData<S>) -> Vec<Argument<'a, S>>,
 	pub field_closure:
 		for<'a> fn(&mut Registry<'a, S>, name: &str, data: &OperationData<S>) -> Field<'a, S>,
 
@@ -134,7 +136,10 @@ where
 
 	fn get_operation_name(data: &OperationData<S>) -> String;
 
-	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>>;
+	fn get_arguments<'r, 'd>(
+		registry: &mut Registry<'r, S>,
+		data: &'d OperationData<S>,
+	) -> Vec<Argument<'r, S>>;
 
 	fn build_field<'r>(
 		registry: &mut Registry<'r, S>,
@@ -305,7 +310,10 @@ where
 		)
 	}
 
-	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
+	fn get_arguments<'r, 'd>(
+		registry: &mut Registry<'r, S>,
+		_: &'d OperationData<S>,
+	) -> Vec<Argument<'r, S>> {
 		vec![registry.arg::<ID>("id", &())]
 	}
 
@@ -335,6 +343,8 @@ where
 		let collection = &entity.collection_name;
 
 		query.limit = arguments.get::<i32>("limit");
+
+		println!("{:#?}", arguments);
 
 		Box::pin(async move {
 			let query_str = query.to_aql();
@@ -393,9 +403,22 @@ where
 		)
 	}
 
-	fn get_arguments<'r>(registry: &mut Registry<'r, S>) -> Vec<Argument<'r, S>> {
+	fn get_arguments<'r, 'd>(
+		registry: &mut Registry<'r, S>,
+		data: &'d OperationData<S>,
+	) -> Vec<Argument<'r, S>> {
 		vec![
-			registry.arg::<Option<i32>>("limit", &())
+			registry.arg::<Option<i32>>("limit", &()),
+			registry.arg::<Option<EntityFilter<'d, S>>>(
+				"where",
+				&EntityFilterData {
+					name: format!(
+						"{}BoolExp",
+						data.entity.name.to_case(convert_case::Case::Pascal)
+					),
+					operation_data: data,
+				},
+			),
 		]
 	}
 
