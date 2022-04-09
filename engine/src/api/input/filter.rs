@@ -1,10 +1,11 @@
 use juniper::meta::{Argument, MetaType};
-use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
+use juniper::{Arguments, FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
 use std::marker::PhantomData;
 
 use crate::api::input::string_filter::{StringFilter, StringFilterData};
 use crate::api::schema::operations::OperationData;
 use crate::lib::database::api::DbScalarType;
+use crate::lib::database::aql::{AQLFilter, AQLNode, AQLQueryParameter};
 
 pub trait FilterOperation<S>
 where
@@ -59,7 +60,7 @@ where
 
 		for property in &info.operation_data.entity.properties {
 			let arg = match property.scalar_type {
-				DbScalarType::String => registry.arg::<StringFilter<'a, S>>(
+				DbScalarType::String => registry.arg::<Option<StringFilter<'a, S>>>(
 					property.name.as_str(),
 					&StringFilterData::from(info),
 				),
@@ -84,4 +85,19 @@ where
 			_marker: Default::default(),
 		})
 	}
+}
+
+pub fn get_aql_filter_from_args<S>(args: &Arguments<S>) -> impl AQLNode
+where
+	S: ScalarValue
+{
+	let filter = AQLFilter {
+		left_node: Box::new(AQLQueryParameter("asd".to_string())),
+		operation: "_eq".into(),
+		right_node: Box::new(AQLQueryParameter("asd".to_string()))
+	};
+
+	println!("{:#?}", args);
+
+	filter
 }

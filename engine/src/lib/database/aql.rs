@@ -118,6 +118,15 @@ pub enum AQLOperation {
 	EQUAL,
 }
 
+impl From<&str> for AQLOperation {
+	fn from(str: &str) -> Self {
+		match str {
+			"_eq" => Self::EQUAL,
+			&_ => unreachable!()
+		}
+	}
+}
+
 impl ToString for AQLOperation {
 	fn to_string(&self) -> String {
 		return match self {

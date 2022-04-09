@@ -87,6 +87,6 @@ where
 	S: ScalarValue,
 {
 	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<String>("_eq", &())
+		registry.arg::<Option<String>>("_eq", &())
 	}
 }

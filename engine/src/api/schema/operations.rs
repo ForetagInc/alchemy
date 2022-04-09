@@ -1,4 +1,4 @@
-use crate::api::input::filter::{EntityFilter, EntityFilterData};
+use crate::api::input::filter::{EntityFilter, EntityFilterData, get_aql_filter_from_args};
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{
@@ -343,8 +343,7 @@ where
 		let collection = &entity.collection_name;
 
 		query.limit = arguments.get::<i32>("limit");
-
-		println!("{:#?}", arguments);
+		query.filter = Some(Box::new(get_aql_filter_from_args(arguments)));
 
 		Box::pin(async move {
 			let query_str = query.to_aql();

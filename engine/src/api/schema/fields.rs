@@ -27,7 +27,7 @@ impl QueryFieldFactory {
 
 		let args = operation.arguments_closure;
 
-		for arg in args(registry) {
+		for arg in args(registry, &operation.data) {
 			field = field.argument(arg);
 		}
 
