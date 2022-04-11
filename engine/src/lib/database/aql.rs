@@ -122,7 +122,7 @@ impl From<&str> for AQLOperation {
 	fn from(str: &str) -> Self {
 		match str {
 			"_eq" => Self::EQUAL,
-			&_ => unreachable!()
+			&_ => unreachable!(),
 		}
 	}
 }

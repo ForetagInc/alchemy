@@ -1,6 +1,8 @@
-use std::collections::HashMap;
 use juniper::meta::{Argument, MetaType};
-use juniper::{Arguments, FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
+use juniper::{
+	Arguments, FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue,
+};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crate::api::input::string_filter::{StringFilter, StringFilterData};
@@ -25,25 +27,28 @@ where
 
 #[derive(Debug)]
 pub struct FilterAttributeValue<S>
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
-	operations: HashMap<String, InputValue<S>>
+	operations: HashMap<String, InputValue<S>>,
 }
 
 #[derive(Debug)]
 pub struct FilterAttributes<S>
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	attributes: HashMap<String, FilterAttributeValue<S>>,
 	and: Option<Vec<FilterAttributes<S>>>,
-	not: Option<FilterAttributes<S>>,
-	or: Option<Vec<FilterAttributes<S>>>
+	not: Box<Option<FilterAttributes<S>>>,
+	or: Option<Vec<FilterAttributes<S>>>,
 }
 
 #[derive(Debug)]
-pub struct EntityFilter<'a, S: 'a> {
+pub struct EntityFilter<'a, S>
+where
+	S: ScalarValue + 'a,
+{
 	pub filter_arguments: FilterAttributes<S>,
 
 	_marker: PhantomData<&'a S>,
@@ -103,23 +108,76 @@ impl<'a, S> FromInputValue<S> for EntityFilter<'a, S>
 where
 	S: ScalarValue,
 {
-	fn from_input_value(_: &InputValue<S>) -> Option<Self> {
+	fn from_input_value(value: &InputValue<S>) -> Option<Self> {
 		Some(Self {
-			filter_arguments: FilterAttributes {},
+			filter_arguments: parse_filter_attributes(value),
 
 			_marker: Default::default(),
 		})
 	}
 }
 
+fn parse_filter_attributes<'a, S>(
+	data: &InputValue<S>,
+) -> FilterAttributes<S>
+where
+	S: ScalarValue + 'a,
+{
+	let mut attributes = HashMap::new();
+
+	match data {
+		InputValue::Object(items) => {
+			let ignore_keys = vec!["_and", "_not", "_or"];
+
+			for (key, value) in items {
+				if ignore_keys.contains(&key.item.as_str()) {
+					continue;
+				}
+
+				attributes.insert(key.item.clone(), parse_filter_attribute_value(&value.item));
+			}
+		}
+		_ => unreachable!(),
+	}
+
+	FilterAttributes {
+		attributes,
+		and: None,
+		not: Box::new(None),
+		or: None,
+	}
+}
+
+fn parse_filter_attribute_value<'a, S>(
+	data: &InputValue<S>,
+) -> FilterAttributeValue<S>
+	where
+		S: ScalarValue + 'a,
+{
+	let operations = HashMap::new();
+
+	match data {
+		InputValue::Object(items) => {
+			for (key, value) in items {
+				()
+			}
+		}
+		_ => unreachable!(),
+	}
+
+	FilterAttributeValue {
+		operations
+	}
+}
+
 pub fn get_aql_filter_from_args<S>(args: &Arguments<S>) -> impl AQLNode
 where
-	S: ScalarValue
+	S: ScalarValue,
 {
 	let filter = AQLFilter {
 		left_node: Box::new(AQLQueryParameter("asd".to_string())),
 		operation: "_eq".into(),
-		right_node: Box::new(AQLQueryParameter("asd".to_string()))
+		right_node: Box::new(AQLQueryParameter("asd".to_string())),
 	};
 
 	println!("{:#?}", args.get::<EntityFilter<S>>("where"));

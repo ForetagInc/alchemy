@@ -1,4 +1,4 @@
-use crate::api::input::filter::{EntityFilter, EntityFilterData, get_aql_filter_from_args};
+use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{
