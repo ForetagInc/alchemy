@@ -144,9 +144,9 @@ pub enum AQLLogicalOperator {
 impl ToString for AQLLogicalOperator {
 	fn to_string(&self) -> String {
 		return match self {
-			AQLLogicalOperator::AND => "AND".to_string(),
-			AQLLogicalOperator::OR => "OR".to_string(),
-			AQLLogicalOperator::NOT => "NOT".to_string(),
+			AQLLogicalOperator::AND => " AND ".to_string(),
+			AQLLogicalOperator::OR => " OR ".to_string(),
+			AQLLogicalOperator::NOT => " NOT ".to_string(),
 		};
 	}
 }
@@ -159,6 +159,7 @@ pub struct AQLLogicalFilter {
 pub struct AQLQueryBind(pub String);
 pub struct AQLQueryParameter(pub String);
 pub struct AQLQueryValue(pub String);
+pub struct AQLQueryRaw(pub String);
 
 pub trait AQLNode {
 	fn describe(&self, id: u32) -> String;
@@ -203,5 +204,11 @@ impl AQLNode for AQLQueryParameter {
 impl AQLNode for AQLQueryValue {
 	fn describe(&self, _: u32) -> String {
 		format!("{:?}", self.0)
+	}
+}
+
+impl AQLNode for AQLQueryRaw {
+	fn describe(&self, _: u32) -> String {
+		self.0.clone()
 	}
 }

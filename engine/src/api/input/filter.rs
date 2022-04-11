@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 use crate::api::input::string_filter::{StringFilter, StringFilterData};
 use crate::api::schema::operations::OperationData;
 use crate::lib::database::api::DbScalarType;
-use crate::lib::database::aql::{AQLFilter, AQLNode, AQLQueryParameter};
+use crate::lib::database::aql::{AQLLogicalFilter, AQLLogicalOperator, AQLNode};
 
 pub trait FilterOperation<S>
 where
@@ -127,7 +127,7 @@ where
 				attributes.insert(key.item.clone(), value.item.clone());
 			}
 		}
-		_ => {},
+		_ => {}
 	}
 
 	FilterAttributes {
@@ -142,10 +142,9 @@ pub fn get_aql_filter_from_args<S>(args: &Arguments<S>, data: &OperationData<S>)
 where
 	S: ScalarValue,
 {
-	let filter = AQLFilter {
-		left_node: Box::new(AQLQueryParameter("asd".to_string())),
-		operation: "_eq".into(),
-		right_node: Box::new(AQLQueryParameter("asd".to_string())),
+	let mut node = AQLLogicalFilter {
+		nodes: Vec::new(),
+		operation: AQLLogicalOperator::AND,
 	};
 
 	if let Some(entity_filter) = args.get::<EntityFilter<S>>("where") {
@@ -160,12 +159,14 @@ where
 
 		for (name, value) in attributes {
 			if let Some(scalar) = properties.get(&name) {
-				return Box::new(create_aql_node_from_attribute(name, value, scalar));
+				node.nodes.push(Box::new(create_aql_node_from_attribute(
+					name, value, scalar,
+				)));
 			}
 		}
 	}
 
-	Box::new(filter)
+	Box::new(node)
 }
 
 fn create_aql_node_from_attribute<S>(
@@ -178,6 +179,6 @@ where
 {
 	match scalar {
 		DbScalarType::String => StringFilter::get_aql_filter_node(name, value),
-		_ => todo!()
+		_ => todo!(),
 	}
 }

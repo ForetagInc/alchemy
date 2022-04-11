@@ -4,7 +4,7 @@ use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, S
 use std::marker::PhantomData;
 
 use crate::api::schema::operations::OperationData;
-use crate::lib::database::aql::{AQLFilter, AQLLogicalFilter, AQLLogicalOperator, AQLNode, AQLOperation, AQLQueryParameter, AQLQueryValue};
+use crate::lib::database::aql::{AQLFilter, AQLLogicalFilter, AQLLogicalOperator, AQLNode, AQLOperation, AQLQueryParameter, AQLQueryRaw, AQLQueryValue};
 
 pub struct StringFilterData<'a, S>
 where
@@ -80,15 +80,18 @@ where
 	pub fn get_aql_filter_node(attribute: String, value: InputValue<S>) -> impl AQLNode {
 		let mut node = AQLLogicalFilter {
 			nodes: Vec::new(),
-			operation: AQLLogicalOperator::AND
+			operation: AQLLogicalOperator::AND,
 		};
 
 		match value {
 			InputValue::Object(items) => {
 				for (key, value) in items {
 					match key.item.as_str() {
-						"_eq" => node.nodes.push(Box::new(StringEq::get_aql_filter_node(&attribute, &value.item))),
-						_ => {},
+						"_eq" => node.nodes.push(Box::new(StringEq::get_aql_filter_node(
+							&attribute,
+							&value.item,
+						))),
+						_ => {}
 					}
 				}
 			}
@@ -113,12 +116,17 @@ where
 impl StringEq {
 	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> impl AQLNode
 	where
-		S: ScalarValue
+		S: ScalarValue,
 	{
+		let right_node: Box<dyn AQLNode> = match value.as_string_value() {
+			None => Box::new(AQLQueryRaw("null".to_string())),
+			Some(v) => Box::new(AQLQueryValue(v.to_string()))
+		};
+
 		AQLFilter {
 			left_node: Box::new(AQLQueryParameter(attribute.to_string())),
 			operation: AQLOperation::EQUAL,
-			right_node: Box::new(AQLQueryValue(value.as_string_value().unwrap().to_string()))
+			right_node,
 		}
 	}
 }
