@@ -26,22 +26,14 @@ where
 }
 
 #[derive(Debug)]
-pub struct FilterAttributeValue<S>
-where
-	S: ScalarValue,
-{
-	operations: HashMap<String, InputValue<S>>,
-}
-
-#[derive(Debug)]
 pub struct FilterAttributes<S>
 where
 	S: ScalarValue,
 {
-	attributes: HashMap<String, FilterAttributeValue<S>>,
-	and: Option<Vec<FilterAttributes<S>>>,
-	not: Box<Option<FilterAttributes<S>>>,
-	or: Option<Vec<FilterAttributes<S>>>,
+	pub attributes: HashMap<String, InputValue<S>>,
+	pub and: Option<Vec<FilterAttributes<S>>>,
+	pub not: Box<Option<FilterAttributes<S>>>,
+	pub or: Option<Vec<FilterAttributes<S>>>,
 }
 
 #[derive(Debug)]
@@ -117,9 +109,7 @@ where
 	}
 }
 
-fn parse_filter_attributes<'a, S>(
-	data: &InputValue<S>,
-) -> FilterAttributes<S>
+fn parse_filter_attributes<'a, S>(data: &InputValue<S>) -> FilterAttributes<S>
 where
 	S: ScalarValue + 'a,
 {
@@ -134,10 +124,10 @@ where
 					continue;
 				}
 
-				attributes.insert(key.item.clone(), parse_filter_attribute_value(&value.item));
+				attributes.insert(key.item.clone(), value.item.clone());
 			}
 		}
-		_ => unreachable!(),
+		_ => {},
 	}
 
 	FilterAttributes {
@@ -148,29 +138,7 @@ where
 	}
 }
 
-fn parse_filter_attribute_value<'a, S>(
-	data: &InputValue<S>,
-) -> FilterAttributeValue<S>
-	where
-		S: ScalarValue + 'a,
-{
-	let operations = HashMap::new();
-
-	match data {
-		InputValue::Object(items) => {
-			for (key, value) in items {
-				()
-			}
-		}
-		_ => unreachable!(),
-	}
-
-	FilterAttributeValue {
-		operations
-	}
-}
-
-pub fn get_aql_filter_from_args<S>(args: &Arguments<S>) -> impl AQLNode
+pub fn get_aql_filter_from_args<S>(args: &Arguments<S>, data: &OperationData<S>) -> Box<dyn AQLNode>
 where
 	S: ScalarValue,
 {
@@ -180,7 +148,36 @@ where
 		right_node: Box::new(AQLQueryParameter("asd".to_string())),
 	};
 
-	println!("{:#?}", args.get::<EntityFilter<S>>("where"));
+	if let Some(entity_filter) = args.get::<EntityFilter<S>>("where") {
+		let attributes = entity_filter.filter_arguments.attributes;
 
-	filter
+		let properties: HashMap<String, DbScalarType> = data
+			.entity
+			.properties
+			.iter()
+			.map(|p| (p.name.clone(), p.scalar_type.clone()))
+			.collect();
+
+		for (name, value) in attributes {
+			if let Some(scalar) = properties.get(&name) {
+				return Box::new(create_aql_node_from_attribute(name, value, scalar));
+			}
+		}
+	}
+
+	Box::new(filter)
+}
+
+fn create_aql_node_from_attribute<S>(
+	name: String,
+	value: InputValue<S>,
+	scalar: &DbScalarType,
+) -> impl AQLNode
+where
+	S: ScalarValue,
+{
+	match scalar {
+		DbScalarType::String => StringFilter::get_aql_filter_node(name, value),
+		_ => todo!()
+	}
 }

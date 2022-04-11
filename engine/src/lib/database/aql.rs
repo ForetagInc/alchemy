@@ -135,8 +135,30 @@ impl ToString for AQLOperation {
 	}
 }
 
-pub struct AQLQueryBind<'a>(pub &'a str);
+pub enum AQLLogicalOperator {
+	AND,
+	OR,
+	NOT,
+}
+
+impl ToString for AQLLogicalOperator {
+	fn to_string(&self) -> String {
+		return match self {
+			AQLLogicalOperator::AND => "AND".to_string(),
+			AQLLogicalOperator::OR => "OR".to_string(),
+			AQLLogicalOperator::NOT => "NOT".to_string(),
+		};
+	}
+}
+
+pub struct AQLLogicalFilter {
+	pub nodes: Vec<Box<dyn AQLNode>>,
+	pub operation: AQLLogicalOperator,
+}
+
+pub struct AQLQueryBind(pub String);
 pub struct AQLQueryParameter(pub String);
+pub struct AQLQueryValue(pub String);
 
 pub trait AQLNode {
 	fn describe(&self, id: u32) -> String;
@@ -153,7 +175,20 @@ impl AQLNode for AQLFilter {
 	}
 }
 
-impl<'a> AQLNode for AQLQueryBind<'a> {
+impl AQLNode for AQLLogicalFilter {
+	fn describe(&self, id: u32) -> String {
+		format!(
+			"({})",
+			self.nodes
+				.iter()
+				.map(|n| format!("({})", n.describe(id)))
+				.collect::<Vec<String>>()
+				.join(&self.operation.to_string())
+		)
+	}
+}
+
+impl AQLNode for AQLQueryBind {
 	fn describe(&self, id: u32) -> String {
 		format!("@arg_{}_{}", id, self.0)
 	}
@@ -162,5 +197,11 @@ impl<'a> AQLNode for AQLQueryBind<'a> {
 impl AQLNode for AQLQueryParameter {
 	fn describe(&self, id: u32) -> String {
 		format!("i_{}.`{}`", id, self.0)
+	}
+}
+
+impl AQLNode for AQLQueryValue {
+	fn describe(&self, _: u32) -> String {
+		format!("{:?}", self.0)
 	}
 }
