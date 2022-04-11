@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use juniper::meta::{Argument, MetaType};
 use juniper::{Arguments, FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
 use std::marker::PhantomData;
@@ -22,7 +23,29 @@ where
 	pub operation_data: &'a OperationData<S>,
 }
 
+#[derive(Debug)]
+pub struct FilterAttributeValue<S>
+	where
+		S: ScalarValue,
+{
+	operations: HashMap<String, InputValue<S>>
+}
+
+#[derive(Debug)]
+pub struct FilterAttributes<S>
+	where
+		S: ScalarValue,
+{
+	attributes: HashMap<String, FilterAttributeValue<S>>,
+	and: Option<Vec<FilterAttributes<S>>>,
+	not: Option<FilterAttributes<S>>,
+	or: Option<Vec<FilterAttributes<S>>>
+}
+
+#[derive(Debug)]
 pub struct EntityFilter<'a, S: 'a> {
+	pub filter_arguments: FilterAttributes<S>,
+
 	_marker: PhantomData<&'a S>,
 }
 
@@ -82,6 +105,8 @@ where
 {
 	fn from_input_value(_: &InputValue<S>) -> Option<Self> {
 		Some(Self {
+			filter_arguments: FilterAttributes {},
+
 			_marker: Default::default(),
 		})
 	}
@@ -97,7 +122,7 @@ where
 		right_node: Box::new(AQLQueryParameter("asd".to_string()))
 	};
 
-	println!("{:#?}", args);
+	println!("{:#?}", args.get::<EntityFilter<S>>("where"));
 
 	filter
 }
