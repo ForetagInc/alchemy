@@ -337,7 +337,7 @@ where
 		arguments: &'b Arguments<S>,
 		mut query: AQLQuery<'b>,
 	) -> FutureType<'b, S> {
-		let time = std::time::Instant::now();
+		let mut time = std::time::Instant::now();
 
 		let entity = &data.entity;
 		let collection = &entity.collection_name;
@@ -345,14 +345,22 @@ where
 		query.limit = arguments.get::<i32>("limit");
 		query.filter = get_aql_filter_from_args(arguments, data);
 
+		println!("Query AQL Filter generation: {:?}", time.elapsed());
+
 		Box::pin(async move {
+			time = std::time::Instant::now();
+
 			let query_str = query.to_aql();
+
+			println!("Query AQL string generation: {:?}", time.elapsed());
 
 			println!("{}", &query_str);
 
 			let entries_query = AqlQuery::builder()
 				.query(&query_str)
 				.bind_var("@collection".to_string(), collection.clone());
+
+			time = std::time::Instant::now();
 
 			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
 				.get()
@@ -369,13 +377,13 @@ where
 				Ok(data) => {
 					let mut output = Vec::<Value<S>>::new();
 
-					let time2 = std::time::Instant::now();
+					time = std::time::Instant::now();
 
 					for datum in data {
 						output.push(convert_json_to_juniper_value(datum.as_object().unwrap()));
 					}
 
-					println!("Conversion: {:?}", time2.elapsed());
+					println!("Output conversion: {:?}", time.elapsed());
 
 					Ok(Value::list(output))
 				}
