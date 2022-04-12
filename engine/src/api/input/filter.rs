@@ -174,10 +174,10 @@ where
 			.map(|p| (p.name.clone(), p.scalar_type.clone()))
 			.collect();
 
-		Some(get_aql_filter_from_entity_filter(
+		get_aql_filter_from_entity_filter(
 			&entity_filter.filter_arguments,
 			&properties,
-		))
+		)
 	} else {
 		None
 	}
@@ -186,7 +186,7 @@ where
 pub fn get_aql_filter_from_entity_filter<S>(
 	filter: &FilterAttributes<S>,
 	properties: &HashMap<String, DbScalarType>,
-) -> Box<dyn AQLNode>
+) -> Option<Box<dyn AQLNode>>
 where
 	S: ScalarValue,
 {
@@ -207,8 +207,9 @@ where
 		};
 
 		for a in filters {
-			n.nodes
-				.push(get_aql_filter_from_entity_filter(a, properties));
+			if let Some(f) = get_aql_filter_from_entity_filter(a, properties) {
+				n.nodes.push(f);
+			}
 		}
 
 		if n.nodes.len() > 0 {
@@ -224,19 +225,25 @@ where
 	}
 
 	if let Some(not) = &*filter.not {
-		not_node = Some(get_aql_filter_from_entity_filter(&not, properties));
+		not_node = get_aql_filter_from_entity_filter(&not, properties);
 	}
 
 	if let Some(or) = &filter.or {
 		or_node = collect_logical_node(or, AQLLogicalOperator::OR, properties);
 	}
 
-	Box::new(AQLFilter {
+	let node = AQLFilter {
 		attr_node,
 		and_node,
 		or_node,
 		not_node,
-	})
+	};
+
+	if node.valid() {
+		Some(Box::new(node))
+	} else {
+		None
+	}
 }
 
 fn create_aql_node_from_attributes<S>(

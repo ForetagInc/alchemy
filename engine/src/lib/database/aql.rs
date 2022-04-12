@@ -170,6 +170,10 @@ pub struct AQLQueryRaw(pub String);
 
 pub trait AQLNode {
 	fn describe(&self, id: u32) -> String;
+
+	fn valid(&self) -> bool {
+		true
+	}
 }
 
 impl AQLNode for AQLFilterOperation {
@@ -209,6 +213,10 @@ impl AQLNode for AQLFilter {
 
 		out
 	}
+
+	fn valid(&self) -> bool {
+		self.attr_node.valid()
+	}
 }
 
 impl AQLNode for AQLLogicalFilter {
@@ -221,6 +229,10 @@ impl AQLNode for AQLLogicalFilter {
 				.collect::<Vec<String>>()
 				.join(&self.operation.to_string())
 		)
+	}
+
+	fn valid(&self) -> bool {
+		self.nodes.len() > 0
 	}
 }
 
