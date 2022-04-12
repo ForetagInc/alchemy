@@ -174,10 +174,7 @@ where
 			.map(|p| (p.name.clone(), p.scalar_type.clone()))
 			.collect();
 
-		get_aql_filter_from_entity_filter(
-			&entity_filter.filter_arguments,
-			&properties,
-		)
+		get_aql_filter_from_entity_filter(&entity_filter.filter_arguments, &properties)
 	} else {
 		None
 	}
@@ -217,7 +214,6 @@ where
 		} else {
 			None
 		}
-
 	}
 
 	if let Some(and) = &filter.and {
@@ -261,7 +257,9 @@ where
 	for (name, value) in &filter.attributes {
 		if let Some(scalar) = properties.get(name) {
 			node.nodes.push(Box::new(create_aql_node_from_attribute(
-				name.to_string(), value, scalar,
+				name.to_string(),
+				value,
+				scalar,
 			)));
 		}
 	}

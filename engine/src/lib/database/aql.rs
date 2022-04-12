@@ -221,14 +221,26 @@ impl AQLNode for AQLFilter {
 
 impl AQLNode for AQLLogicalFilter {
 	fn describe(&self, id: u32) -> String {
-		format!(
-			"({})",
+		let mut str = String::new();
+
+		if self.nodes.len() > 1 {
+			str.push('(');
+		}
+
+		str.push_str(
 			self.nodes
 				.iter()
 				.map(|n| format!("{}", n.describe(id)))
 				.collect::<Vec<String>>()
 				.join(&self.operation.to_string())
-		)
+				.as_str(),
+		);
+
+		if self.nodes.len() > 1 {
+			str.push(')');
+		}
+
+		str
 	}
 
 	fn valid(&self) -> bool {
