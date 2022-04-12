@@ -153,7 +153,7 @@ impl ToString for AQLLogicalOperator {
 		return match self {
 			AQLLogicalOperator::AND => " AND ".to_string(),
 			AQLLogicalOperator::OR => " OR ".to_string(),
-			AQLLogicalOperator::NOT => " NOT ".to_string(),
+			AQLLogicalOperator::NOT => " AND NOT ".to_string(),
 		};
 	}
 }
