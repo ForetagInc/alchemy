@@ -108,10 +108,17 @@ pub struct AQLProperty {
 	pub name: String,
 }
 
-pub struct AQLFilter {
+pub struct AQLFilterOperation {
 	pub left_node: Box<dyn AQLNode>,
 	pub operation: AQLOperation,
 	pub right_node: Box<dyn AQLNode>,
+}
+
+pub struct AQLFilter {
+	pub attr_node: Box<dyn AQLNode>,
+	pub and_node: Option<Box<dyn AQLNode>>,
+	pub or_node: Option<Box<dyn AQLNode>>,
+	pub not_node: Option<Box<dyn AQLNode>>,
 }
 
 pub enum AQLOperation {
@@ -165,7 +172,7 @@ pub trait AQLNode {
 	fn describe(&self, id: u32) -> String;
 }
 
-impl AQLNode for AQLFilter {
+impl AQLNode for AQLFilterOperation {
 	fn describe(&self, id: u32) -> String {
 		format!(
 			"({} {} {})",
@@ -176,13 +183,41 @@ impl AQLNode for AQLFilter {
 	}
 }
 
+impl AQLNode for AQLFilter {
+	fn describe(&self, id: u32) -> String {
+		let mut out = String::new();
+
+		fn add_to_if_exists(
+			mut str: String,
+			node: &Option<Box<dyn AQLNode>>,
+			operator: AQLLogicalOperator,
+			id: u32,
+		) -> String {
+			if let Some(n) = node {
+				str.push_str(operator.to_string().as_str());
+				str.push_str(n.describe(id).as_str());
+			}
+
+			str
+		}
+
+		out.push_str(self.attr_node.describe(id).as_str());
+
+		out = add_to_if_exists(out, &self.and_node, AQLLogicalOperator::AND, id);
+		out = add_to_if_exists(out, &self.or_node, AQLLogicalOperator::OR, id);
+		out = add_to_if_exists(out, &self.not_node, AQLLogicalOperator::NOT, id);
+
+		out
+	}
+}
+
 impl AQLNode for AQLLogicalFilter {
 	fn describe(&self, id: u32) -> String {
 		format!(
 			"({})",
 			self.nodes
 				.iter()
-				.map(|n| format!("({})", n.describe(id)))
+				.map(|n| format!("{}", n.describe(id)))
 				.collect::<Vec<String>>()
 				.join(&self.operation.to_string())
 		)

@@ -14,7 +14,7 @@ use crate::api::schema::errors::NotFoundError;
 use crate::api::schema::fields::Entity;
 use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
-	AQLFilter, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
+	AQLFilterOperation, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
 };
 use crate::lib::database::DATABASE;
 
@@ -242,7 +242,7 @@ where
 		let entity = &data.entity;
 		let collection = &entity.collection_name;
 
-		query.filter = Some(Box::new(AQLFilter {
+		query.filter = Some(Box::new(AQLFilterOperation {
 			left_node: Box::new(AQLQueryParameter("_key".to_string())),
 			operation: AQLOperation::EQUAL,
 			right_node: Box::new(AQLQueryBind("id".to_string())),
@@ -343,7 +343,7 @@ where
 		let collection = &entity.collection_name;
 
 		query.limit = arguments.get::<i32>("limit");
-		query.filter = Some(get_aql_filter_from_args(arguments, data));
+		query.filter = get_aql_filter_from_args(arguments, data);
 
 		Box::pin(async move {
 			let query_str = query.to_aql();

@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 use crate::api::input::string_filter::{StringFilter, StringFilterData};
 use crate::api::schema::operations::OperationData;
 use crate::lib::database::api::DbScalarType;
-use crate::lib::database::aql::{AQLLogicalFilter, AQLLogicalOperator, AQLNode};
+use crate::lib::database::aql::{AQLFilter, AQLLogicalFilter, AQLLogicalOperator, AQLNode};
 
 pub trait FilterOperation<S>
 where
@@ -114,17 +114,21 @@ where
 	S: ScalarValue + 'a,
 {
 	let mut attributes = HashMap::new();
+	let mut and = None;
+	let mut not = Box::new(None);
+	let mut or = None;
 
 	match data {
 		InputValue::Object(items) => {
-			let ignore_keys = vec!["_and", "_not", "_or"];
-
 			for (key, value) in items {
-				if ignore_keys.contains(&key.item.as_str()) {
-					continue;
+				match key.item.as_str() {
+					"_and" => and = Some(collect_filter_attributes(&value.item)),
+					"_not" => not = Box::new(Some(parse_filter_attributes(&value.item))),
+					"_or" => or = Some(collect_filter_attributes(&value.item)),
+					&_ => {
+						attributes.insert(key.item.clone(), value.item.clone());
+					}
 				}
-
-				attributes.insert(key.item.clone(), value.item.clone());
 			}
 		}
 		_ => {}
@@ -132,13 +136,113 @@ where
 
 	FilterAttributes {
 		attributes,
-		and: None,
-		not: Box::new(None),
-		or: None,
+		and,
+		not,
+		or,
 	}
 }
 
-pub fn get_aql_filter_from_args<S>(args: &Arguments<S>, data: &OperationData<S>) -> Box<dyn AQLNode>
+fn collect_filter_attributes<S>(data: &InputValue<S>) -> Vec<FilterAttributes<S>>
+where
+	S: ScalarValue,
+{
+	let mut arr = Vec::new();
+
+	if let InputValue::List(elements) = data {
+		for el in elements {
+			arr.push(parse_filter_attributes(&el.item))
+		}
+	} else if let InputValue::Object(_) = data {
+		arr.push(parse_filter_attributes(&data))
+	}
+
+	arr
+}
+
+pub fn get_aql_filter_from_args<S>(
+	args: &Arguments<S>,
+	data: &OperationData<S>,
+) -> Option<Box<dyn AQLNode>>
+where
+	S: ScalarValue,
+{
+	if let Some(entity_filter) = args.get::<EntityFilter<S>>("where") {
+		let properties: HashMap<String, DbScalarType> = data
+			.entity
+			.properties
+			.iter()
+			.map(|p| (p.name.clone(), p.scalar_type.clone()))
+			.collect();
+
+		Some(get_aql_filter_from_entity_filter(
+			&entity_filter.filter_arguments,
+			&properties,
+		))
+	} else {
+		None
+	}
+}
+
+pub fn get_aql_filter_from_entity_filter<S>(
+	filter: &FilterAttributes<S>,
+	properties: &HashMap<String, DbScalarType>,
+) -> Box<dyn AQLNode>
+where
+	S: ScalarValue,
+{
+	let attr_node = Box::new(create_aql_node_from_attributes(&filter, &properties));
+
+	let mut and_node = None;
+	let mut or_node = None;
+	let mut not_node = None;
+
+	fn collect_logical_node<S: ScalarValue>(
+		filters: &Vec<FilterAttributes<S>>,
+		operation: AQLLogicalOperator,
+		properties: &HashMap<String, DbScalarType>,
+	) -> Option<Box<dyn AQLNode>> {
+		let mut n = AQLLogicalFilter {
+			nodes: Vec::new(),
+			operation,
+		};
+
+		for a in filters {
+			n.nodes
+				.push(get_aql_filter_from_entity_filter(a, properties));
+		}
+
+		if n.nodes.len() > 0 {
+			Some(Box::new(n))
+		} else {
+			None
+		}
+
+	}
+
+	if let Some(and) = &filter.and {
+		and_node = collect_logical_node(and, AQLLogicalOperator::AND, properties);
+	}
+
+	if let Some(not) = &*filter.not {
+		not_node = Some(get_aql_filter_from_entity_filter(&not, properties));
+	}
+
+	if let Some(or) = &filter.or {
+		or_node = collect_logical_node(or, AQLLogicalOperator::OR, properties);
+	}
+
+	Box::new(AQLFilter {
+		attr_node,
+		and_node,
+		or_node,
+		not_node,
+	})
+}
+
+fn create_aql_node_from_attributes<S>(
+	filter: &FilterAttributes<S>,
+	properties: &HashMap<String, DbScalarType>,
+) -> impl AQLNode
 where
 	S: ScalarValue,
 {
@@ -147,31 +251,20 @@ where
 		operation: AQLLogicalOperator::AND,
 	};
 
-	if let Some(entity_filter) = args.get::<EntityFilter<S>>("where") {
-		let attributes = entity_filter.filter_arguments.attributes;
-
-		let properties: HashMap<String, DbScalarType> = data
-			.entity
-			.properties
-			.iter()
-			.map(|p| (p.name.clone(), p.scalar_type.clone()))
-			.collect();
-
-		for (name, value) in attributes {
-			if let Some(scalar) = properties.get(&name) {
-				node.nodes.push(Box::new(create_aql_node_from_attribute(
-					name, value, scalar,
-				)));
-			}
+	for (name, value) in &filter.attributes {
+		if let Some(scalar) = properties.get(name) {
+			node.nodes.push(Box::new(create_aql_node_from_attribute(
+				name.to_string(), value, scalar,
+			)));
 		}
 	}
 
-	Box::new(node)
+	node
 }
 
 fn create_aql_node_from_attribute<S>(
 	name: String,
-	value: InputValue<S>,
+	value: &InputValue<S>,
 	scalar: &DbScalarType,
 ) -> impl AQLNode
 where
