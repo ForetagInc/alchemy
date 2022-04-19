@@ -1,3 +1,4 @@
+use convert_case::Casing;
 use juniper::meta::{Argument, MetaType};
 use juniper::{
 	Arguments, FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue,
@@ -23,6 +24,21 @@ where
 {
 	pub name: String,
 	pub operation_data: &'a OperationData<S>,
+}
+
+impl<'a, S> EntityFilterData<'a, S>
+where
+	S: ScalarValue,
+{
+	pub fn new(data: &'a OperationData<S>) -> Self {
+		Self {
+			name: format!(
+				"{}BoolExp",
+				data.entity.name.to_case(convert_case::Case::Pascal)
+			),
+			operation_data: data,
+		}
+	}
 }
 
 #[derive(Debug)]

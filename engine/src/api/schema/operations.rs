@@ -416,16 +416,7 @@ where
 	) -> Vec<Argument<'r, S>> {
 		vec![
 			registry.arg::<Option<i32>>("limit", &()),
-			registry.arg::<Option<EntityFilter<'d, S>>>(
-				"where",
-				&EntityFilterData {
-					name: format!(
-						"{}BoolExp",
-						data.entity.name.to_case(convert_case::Case::Pascal)
-					),
-					operation_data: data,
-				},
-			),
+			registry.arg::<Option<EntityFilter<'d, S>>>("where", &EntityFilterData::new(data)),
 		]
 	}
 

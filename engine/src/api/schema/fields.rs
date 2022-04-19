@@ -1,3 +1,4 @@
+use crate::api::input::filter::{EntityFilter, EntityFilterData, get_aql_filter_from_args};
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Field, MetaType};
 use juniper::{
@@ -120,12 +121,16 @@ fn build_field_from_relationship<'r, S>(
 where
 	S: ScalarValue,
 {
-	return match relationship.relationship_type {
+	let field = match relationship.relationship_type {
 		DbRelationshipType::OneToOne => registry.field::<Entity>(relationship.name.as_str(), info),
 		DbRelationshipType::OneToMany | DbRelationshipType::ManyToMany => {
 			registry.field::<Vec<Entity>>(relationship.name.as_str(), info)
 		}
 	};
+
+	field
+		.argument(registry.arg::<Option<EntityFilter<S>>>("where", &EntityFilterData::new(info)))
+		.argument(registry.arg::<Option<i32>>("limit", &()))
 }
 
 impl<S> GraphQLType<S> for Entity
@@ -202,13 +207,14 @@ where
 		&'b self,
 		info: &'b Self::TypeInfo,
 		selection_set: Option<&'b [Selection<S>]>,
-		_executor: &'b Executor<Self::Context, S>,
+		executor: &'b Executor<Self::Context, S>,
 	) -> BoxFuture<'b, ExecutionResult<S>> {
 		Box::pin(resolve_graphql_field(
 			info,
 			self.field_name,
 			self.arguments,
 			selection_set.unwrap(),
+			executor,
 		))
 	}
 }
@@ -218,12 +224,19 @@ async fn resolve_graphql_field<'a, S>(
 	field_name: &str,
 	arguments: &'a Arguments<'a, S>,
 	selection_set: &'a [Selection<'a, S>],
+	executor: &'a Executor<'a, 'a, <QueryFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
 ) -> ExecutionResult<S>
 where
 	S: ScalarValue + Send + Sync,
 {
 	if let Some(entry) = info.operation_registry.get_operation(field_name) {
-		let query = get_query_from_graphql(selection_set, &entry.data.entity.name, info, None);
+		let query = get_query_from_graphql(
+			selection_set,
+			&entry.data.entity.name,
+			info,
+			None,
+			executor,
+		);
 
 		let closure = entry.closure;
 
@@ -238,11 +251,19 @@ fn get_query_from_graphql<'a, S>(
 	entity_name: &'a str,
 	data: &'a QueryData<S>,
 	query_id: Option<u32>,
+	executor: &'a Executor<'a, 'a, <QueryFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
 ) -> AQLQuery<'a>
 where
 	S: ScalarValue + Send + Sync,
 {
 	let mut query = AQLQuery::new(query_id.unwrap_or(1));
+
+	let meta_type = executor
+		.schema()
+		.concrete_type_by_name(
+			entity_name.as_ref(),
+		)
+		.expect("Type not found in schema");
 
 	for selection in selection_set {
 		match *selection {
@@ -261,7 +282,35 @@ where
 						entity_name,
 						data,
 						Some(query.id + 1),
+						executor,
 					);
+
+					let meta_field = meta_type.field_by_name(f.name.item).unwrap_or_else(|| {
+						panic!(
+							"Field {} not found on type {:?}",
+							f.name.item,
+							meta_type.name()
+						)
+					});
+
+					let args = Arguments::new(
+						f.arguments.as_ref().map(|m| {
+							m.item
+								.iter()
+								.map(|&(ref k, ref v)| {
+									(k.item, v.item.clone().into_const(executor.variables()))
+								})
+								.collect()
+						}),
+						&meta_field.arguments,
+					);
+
+					// All entities at least have the get{Entity} operation
+					let dummy_key = format!("get{}", meta_field.field_type.innermost_name());
+					let operation_entry = data.operation_registry.get_operation(&dummy_key).unwrap();
+
+					inner_query.limit = args.get::<i32>("limit");
+					inner_query.filter = get_aql_filter_from_args(&args, &operation_entry.data);
 
 					for relationship in &data.relationships {
 						if owns_relationship(&relationship, entity_name) {
