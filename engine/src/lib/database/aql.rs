@@ -1,11 +1,12 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::lib::database::api::DbRelationshipDirection;
+use crate::lib::database::api::{DbRelationshipDirection, DbRelationshipType};
 
 pub struct AQLQueryRelationship {
 	pub edge: String,
 	pub direction: DbRelationshipDirection,
+	pub relationship_type: DbRelationshipType,
 	pub variable_name: String,
 }
 
@@ -36,14 +37,19 @@ impl<'a> AQLQuery<'a> {
 	pub fn to_aql(&self) -> String {
 		if let Some(ref r) = self.relationship {
 			format!(
-				"FOR {} IN {} {} {} {} {} RETURN {}",
+				"(FOR {} IN {} {} {} {} {} RETURN {}){}",
 				self.get_variable_name(),
 				r.direction.to_string(),
 				r.variable_name,
 				r.edge,
 				self.describe_filter(),
 				self.describe_limit(),
-				self.describe_parameters()
+				self.describe_parameters(),
+				if !r.relationship_type.returns_array() {
+					"[0]"
+				} else {
+					""
+				}
 			)
 		} else {
 			format!(
@@ -67,7 +73,7 @@ impl<'a> AQLQuery<'a> {
 					name = p.name
 				))
 				.chain(self.relations.iter().map(|(key, query)| format!(
-					"\"{}\": ({})",
+					"\"{}\": {}",
 					key,
 					query.to_aql()
 				)))

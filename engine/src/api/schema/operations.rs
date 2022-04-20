@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::api::schema::errors::NotFoundError;
-use crate::api::schema::fields::Entity;
+use crate::api::schema::fields::{Entity, EntityData};
 use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
 	AQLFilterOperation, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
@@ -24,12 +24,13 @@ pub struct OperationRegistry<S>
 where
 	S: ScalarValue + Send + Sync,
 {
+	operation_data: HashMap<String, Arc<OperationData<S>>>,
 	operations: HashMap<String, OperationEntry<S>>,
 }
 
 pub struct OperationEntry<S>
 where
-	S: ScalarValue,
+	S: ScalarValue + Send + Sync,
 {
 	pub closure: for<'a> fn(
 		&'a OperationData<S>,
@@ -38,8 +39,12 @@ where
 	) -> FutureType<'a, S>,
 	pub arguments_closure:
 		for<'a> fn(&mut Registry<'a, S>, data: &OperationData<S>) -> Vec<Argument<'a, S>>,
-	pub field_closure:
-		for<'a> fn(&mut Registry<'a, S>, name: &str, data: &OperationData<S>) -> Field<'a, S>,
+	pub field_closure: for<'a> fn(
+		&mut Registry<'a, S>,
+		name: &str,
+		data: &OperationData<S>,
+		&OperationRegistry<S>,
+	) -> Field<'a, S>,
 
 	pub data: Arc<OperationData<S>>,
 }
@@ -50,6 +55,7 @@ where
 {
 	pub fn new() -> OperationRegistry<S> {
 		OperationRegistry {
+			operation_data: HashMap::new(),
 			operations: HashMap::new(),
 		}
 	}
@@ -60,11 +66,9 @@ where
 		arguments: &'b Arguments<S>,
 		query: AQLQuery<'b>,
 	) -> Option<FutureType<'b, S>> {
-		self.operations.get(key).map(|o| {
-			let closure = o.closure;
-
-			closure(&o.data, arguments, query)
-		})
+		self.operations
+			.get(key)
+			.map(|o| (o.closure)(&o.data, arguments, query))
 	}
 
 	pub fn get_operations(&self) -> &HashMap<String, OperationEntry<S>> {
@@ -75,17 +79,20 @@ where
 		self.operations.get(key)
 	}
 
-	pub fn register_entity(
-		&mut self,
-		entity: Arc<DbEntity>,
-		relationships: Arc<Vec<DbRelationship>>,
-	) {
+	pub fn get_operation_data(&self, key: &str) -> Option<Arc<OperationData<S>>> {
+		self.operation_data.get(key).map(|e| e.clone())
+	}
+
+	pub fn register_entity(&mut self, entity: Arc<DbEntity>, relationships: Vec<DbRelationship>) {
 		let data = Arc::new(OperationData {
 			entity: entity.clone(),
-			relationships: relationships.clone(),
+			relationships,
 
 			_phantom: Default::default(),
 		});
+
+		self.operation_data
+			.insert(entity.name.clone(), data.clone());
 
 		vec![
 			self.register::<Get>(data.clone()),
@@ -118,14 +125,14 @@ where
 	S: ScalarValue,
 {
 	pub entity: Arc<DbEntity>,
-	pub relationships: Arc<Vec<DbRelationship>>,
+	pub relationships: Vec<DbRelationship>,
 
 	_phantom: PhantomData<S>,
 }
 
 pub trait Operation<S>
 where
-	S: ScalarValue,
+	S: ScalarValue + Send + Sync,
 	Self: Send + Sync,
 {
 	fn call<'b>(
@@ -145,6 +152,7 @@ where
 		registry: &mut Registry<'r, S>,
 		name: &str,
 		data: &OperationData<S>,
+		operation_registry: &OperationRegistry<S>,
 	) -> Field<'r, S>;
 
 	fn get_relationship_edge_name(relationship: &DbRelationship) -> String {
@@ -321,8 +329,15 @@ where
 		registry: &mut Registry<'r, S>,
 		name: &str,
 		data: &OperationData<S>,
+		operation_registry: &OperationRegistry<S>,
 	) -> Field<'r, S> {
-		registry.field::<Option<Entity>>(name, &data)
+		registry.field::<Option<Entity>>(
+			name,
+			&EntityData {
+				data,
+				registry: operation_registry,
+			},
+		)
 	}
 }
 
@@ -424,7 +439,14 @@ where
 		registry: &mut Registry<'r, S>,
 		name: &str,
 		data: &OperationData<S>,
+		operation_registry: &OperationRegistry<S>,
 	) -> Field<'r, S> {
-		registry.field::<Vec<Entity>>(name, &data)
+		registry.field::<Vec<Entity>>(
+			name,
+			&EntityData {
+				data,
+				registry: operation_registry,
+			},
+		)
 	}
 }

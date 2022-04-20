@@ -10,13 +10,12 @@ use juniper::{
 	Arguments, BoxFuture, EmptyMutation, EmptySubscription, ExecutionResult, Executor, GraphQLType,
 	GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
 };
-use std::sync::Arc;
 
 use crate::lib::database::api::*;
 
 pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
-pub fn owns_relationship(relationship: &DbRelationship, entity_name: &str) -> bool {
+fn owns_relationship(relationship: &DbRelationship, entity_name: &str) -> bool {
 	match relationship.direction {
 		DbRelationshipDirection::Inbound => relationship.to.name == entity_name,
 		DbRelationshipDirection::Outbound => relationship.from.name == entity_name,
@@ -40,7 +39,7 @@ pub fn schema(map: DbMap) -> Schema {
 					}
 				}
 
-				operation_registry.register_entity(t, Arc::new(relationships));
+				operation_registry.register_entity(t, relationships);
 			}
 			DbPrimitive::Enum(_) => {}
 		}
@@ -84,7 +83,12 @@ where
 		let mut queries = Vec::new();
 
 		for (name, operation) in info.operation_registry.get_operations() {
-			queries.push(QueryFieldFactory::new(name, operation, registry));
+			queries.push(QueryFieldFactory::new(
+				name,
+				operation,
+				registry,
+				&info.operation_registry,
+			));
 		}
 
 		registry

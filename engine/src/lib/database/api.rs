@@ -69,6 +69,16 @@ pub enum DbRelationshipType {
 	OneToOne,
 	OneToMany,
 	ManyToMany,
+	ManyToOne,
+}
+
+impl DbRelationshipType {
+	pub fn returns_array(&self) -> bool {
+		match self {
+			DbRelationshipType::OneToOne | DbRelationshipType::ManyToOne => false,
+			DbRelationshipType::OneToMany | DbRelationshipType::ManyToMany => true,
+		}
+	}
 }
 
 impl From<&str> for DbRelationshipType {
@@ -77,6 +87,7 @@ impl From<&str> for DbRelationshipType {
 			"one_to_one" => Self::OneToOne,
 			"one_to_many" => Self::OneToMany,
 			"many_to_many" => Self::ManyToMany,
+			"many_to_one" => Self::ManyToOne,
 			&_ => unreachable!(),
 		};
 	}

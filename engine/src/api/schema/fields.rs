@@ -1,12 +1,13 @@
-use crate::api::input::filter::{EntityFilter, EntityFilterData, get_aql_filter_from_args};
+use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Field, MetaType};
 use juniper::{
 	Arguments, BoxFuture, ExecutionResult, Executor, GraphQLType, GraphQLValue, GraphQLValueAsync,
 	Registry, ScalarValue, Selection, Spanning, Value,
 };
+use std::marker::PhantomData;
 
-use crate::api::schema::operations::{OperationData, OperationEntry};
+use crate::api::schema::operations::{OperationData, OperationEntry, OperationRegistry};
 use crate::api::schema::{owns_relationship, QueryData};
 use crate::lib::database::api::{DbProperty, DbRelationship, DbRelationshipType, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryRelationship};
@@ -18,17 +19,15 @@ impl QueryFieldFactory {
 		name: &str,
 		operation: &OperationEntry<S>,
 		registry: &mut Registry<'a, S>,
+		operation_registry: &OperationRegistry<S>,
 	) -> Field<'a, S>
 	where
-		S: ScalarValue,
+		S: ScalarValue + Send + Sync,
 	{
-		let field_builder = operation.field_closure;
+		let mut field =
+			(operation.field_closure)(registry, name, &operation.data, operation_registry);
 
-		let mut field = field_builder(registry, name, &operation.data);
-
-		let args = operation.arguments_closure;
-
-		for arg in args(registry, &operation.data) {
+		for arg in (operation.arguments_closure)(registry, &operation.data) {
 			field = field.argument(arg);
 		}
 
@@ -49,7 +48,17 @@ impl QueryFieldFactory {
 	}
 }
 
-pub struct Entity;
+pub struct EntityData<'a, S>
+where
+	S: ScalarValue + Send + Sync,
+{
+	pub registry: &'a OperationRegistry<S>,
+	pub data: &'a OperationData<S>,
+}
+
+pub struct Entity<'a> {
+	_marker: PhantomData<&'a ()>,
+}
 
 fn build_field_from_property<'r, S>(
 	registry: &mut Registry<'r, S>,
@@ -116,29 +125,30 @@ where
 fn build_field_from_relationship<'r, S>(
 	registry: &mut Registry<'r, S>,
 	relationship: &DbRelationship,
-	info: &OperationData<S>,
+	info: &EntityData<S>,
 ) -> Field<'r, S>
 where
-	S: ScalarValue,
+	S: ScalarValue + Send + Sync,
 {
-	let field = match relationship.relationship_type {
-		DbRelationshipType::OneToOne => registry.field::<Entity>(relationship.name.as_str(), info),
-		DbRelationshipType::OneToMany | DbRelationshipType::ManyToMany => {
-			registry.field::<Vec<Entity>>(relationship.name.as_str(), info)
-		}
+	let field = if relationship.relationship_type.returns_array() {
+		registry.field::<Vec<Entity>>(relationship.name.as_str(), info)
+	} else {
+		registry.field::<Entity>(relationship.name.as_str(), info)
 	};
 
 	field
-		.argument(registry.arg::<Option<EntityFilter<S>>>("where", &EntityFilterData::new(info)))
+		.argument(
+			registry.arg::<Option<EntityFilter<S>>>("where", &EntityFilterData::new(info.data)),
+		)
 		.argument(registry.arg::<Option<i32>>("limit", &()))
 }
 
-impl<S> GraphQLType<S> for Entity
+impl<'a, S> GraphQLType<S> for Entity<'a>
 where
-	S: ScalarValue,
+	S: ScalarValue + Send + Sync,
 {
 	fn name(info: &Self::TypeInfo) -> Option<&str> {
-		Some(info.entity.name.as_str())
+		Some(info.data.entity.name.as_str())
 	}
 
 	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
@@ -147,14 +157,22 @@ where
 	{
 		let mut fields = Vec::new();
 
-		for property in &info.entity.properties {
+		for property in &info.data.entity.properties {
 			let field = build_field_from_property(registry, &property, &property.scalar_type, true);
 
 			fields.push(field);
 		}
 
-		for relationship in &*info.relationships {
-			let field = build_field_from_relationship(registry, relationship, &info);
+		for relationship in &*info.data.relationships {
+			let rel_info = &EntityData {
+				data: &*info
+					.registry
+					.get_operation_data(&relationship.to.name)
+					.expect("Relationship entity operation data not found"),
+				registry: info.registry,
+			};
+
+			let field = build_field_from_relationship(registry, relationship, rel_info);
 
 			fields.push(field);
 		}
@@ -165,12 +183,12 @@ where
 	}
 }
 
-impl<S> GraphQLValue<S> for Entity
+impl<'a, S> GraphQLValue<S> for Entity<'a>
 where
-	S: ScalarValue,
+	S: ScalarValue + Send + Sync,
 {
 	type Context = ();
-	type TypeInfo = OperationData<S>;
+	type TypeInfo = EntityData<'a, S>;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)
@@ -230,17 +248,10 @@ where
 	S: ScalarValue + Send + Sync,
 {
 	if let Some(entry) = info.operation_registry.get_operation(field_name) {
-		let query = get_query_from_graphql(
-			selection_set,
-			&entry.data.entity.name,
-			info,
-			None,
-			executor,
-		);
+		let query =
+			get_query_from_graphql(selection_set, &entry.data.entity.name, info, None, executor);
 
-		let closure = entry.closure;
-
-		closure(&entry.data, arguments, query).await
+		(entry.closure)(&entry.data, arguments, query).await
 	} else {
 		Ok(Value::null())
 	}
@@ -260,9 +271,7 @@ where
 
 	let meta_type = executor
 		.schema()
-		.concrete_type_by_name(
-			entity_name.as_ref(),
-		)
+		.concrete_type_by_name(entity_name.as_ref())
 		.expect("Type not found in schema");
 
 	for selection in selection_set {
@@ -306,18 +315,21 @@ where
 					);
 
 					// All entities at least have the get{Entity} operation
-					let dummy_key = format!("get{}", meta_field.field_type.innermost_name());
-					let operation_entry = data.operation_registry.get_operation(&dummy_key).unwrap();
+					let operation_data = data
+						.operation_registry
+						.get_operation_data(entity_name)
+						.unwrap();
 
 					inner_query.limit = args.get::<i32>("limit");
-					inner_query.filter = get_aql_filter_from_args(&args, &operation_entry.data);
+					inner_query.filter = get_aql_filter_from_args(&args, &operation_data);
 
 					for relationship in &data.relationships {
-						if owns_relationship(&relationship, entity_name) {
+						if relationship.name == response_name {
 							inner_query.relationship = Some(AQLQueryRelationship {
 								edge: relationship.edge.clone(),
 								variable_name: query.get_variable_name(),
 								direction: relationship.direction.clone(),
+								relationship_type: relationship.relationship_type.clone(),
 							});
 
 							query.relations.insert(response_name.clone(), inner_query);
