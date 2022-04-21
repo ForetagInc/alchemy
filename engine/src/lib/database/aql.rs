@@ -10,11 +10,18 @@ pub struct AQLQueryRelationship {
 	pub variable_name: String,
 }
 
+pub enum AQLQueryMethod {
+	Get,
+	Update
+}
+
 pub struct AQLQuery<'a> {
 	pub properties: Vec<AQLProperty>,
+	pub method: AQLQueryMethod,
 	pub filter: Option<Box<dyn AQLNode>>,
 	pub parameters: HashMap<&'a str, Value>,
 	pub relations: HashMap<String, AQLQuery<'a>>,
+	pub updates: HashMap<String, AQLQuery<'a>>,
 	pub limit: Option<i32>,
 	pub relationship: Option<AQLQueryRelationship>,
 
@@ -25,9 +32,11 @@ impl<'a> AQLQuery<'a> {
 	pub fn new(id: u32) -> AQLQuery<'a> {
 		AQLQuery {
 			properties: Vec::new(),
+			method: AQLQueryMethod::Get,
 			filter: None,
 			parameters: HashMap::new(),
 			relations: HashMap::new(),
+			updates: HashMap::new(),
 			limit: None,
 			relationship: None,
 			id,
@@ -35,6 +44,38 @@ impl<'a> AQLQuery<'a> {
 	}
 
 	pub fn to_aql(&self) -> String {
+		match self.method {
+			AQLQueryMethod::Get => self.to_get_aql(),
+			AQLQueryMethod::Update => self.to_update_aql(),
+		}
+	}
+
+	pub fn describe_parameters(&self) -> String {
+		let variable = match self.method {
+			AQLQueryMethod::Get => self.get_variable_name(),
+			AQLQueryMethod::Update => "NEW".to_string()
+		};
+
+		format!(
+			"{{{}}}",
+			self.properties
+				.iter()
+				.map(|p| format!(
+					"\"{name}\": {}.`{name}`",
+					variable,
+					name = p.name
+				))
+				.chain(self.relations.iter().map(|(key, query)| format!(
+					"\"{}\": {}",
+					key,
+					query.to_aql()
+				)))
+				.collect::<Vec<String>>()
+				.join(",")
+		)
+	}
+
+	fn to_get_aql(&self) -> String {
 		if let Some(ref r) = self.relationship {
 			format!(
 				"(FOR {} IN {} {} {} {} {} RETURN {}){}",
@@ -62,24 +103,18 @@ impl<'a> AQLQuery<'a> {
 		}
 	}
 
-	pub fn describe_parameters(&self) -> String {
+	fn to_update_aql(&self) -> String {
 		format!(
-			"{{{}}}",
-			self.properties
-				.iter()
-				.map(|p| format!(
-					"\"{name}\": {}.`{name}`",
-					self.get_variable_name(),
-					name = p.name
-				))
-				.chain(self.relations.iter().map(|(key, query)| format!(
-					"\"{}\": {}",
-					key,
-					query.to_aql()
-				)))
-				.collect::<Vec<String>>()
-				.join(",")
+			"FOR {var} IN @@collection {} UPDATE {var}.`_key` WITH {} IN @@collection RETURN {}",
+			self.describe_filter(),
+			self.describe_update(),
+			self.describe_parameters(),
+			var = self.get_variable_name(),
 		)
+	}
+
+	fn describe_update(&self) -> String {
+
 	}
 
 	fn describe_limit(&self) -> String {

@@ -110,7 +110,7 @@ where
 							StringLessOrEqualThan::get_aql_filter_node(&attribute, &value.item)
 						}
 						"_neq" => StringNotEqual::get_aql_filter_node(&attribute, &value.item),
-						"_nlike" => StringLike::get_aql_filter_node(&attribute, &value.item),
+						"_nlike" => StringNotLike::get_aql_filter_node(&attribute, &value.item),
 						"_nregex" => StringNotRegex::get_aql_filter_node(&attribute, &value.item),
 						"_regex" => StringRegex::get_aql_filter_node(&attribute, &value.item),
 						_ => unreachable!(),

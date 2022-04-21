@@ -1,6 +1,10 @@
+use crate::api::schema::errors::NotFoundError;
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
-use juniper::{Arguments, BoxFuture, ExecutionResult, Object, Registry, ScalarValue, Value};
+use juniper::{
+	Arguments, BoxFuture, ExecutionResult, IntoFieldError, Object, Registry, ScalarValue, Value,
+};
+use rust_arango::ClientError;
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -8,11 +12,15 @@ use std::sync::Arc;
 
 use crate::api::schema::operations::get::Get;
 use crate::api::schema::operations::get_all::GetAll;
+use crate::api::schema::operations::update::Update;
 use crate::lib::database::api::{DbEntity, DbRelationship};
-use crate::lib::database::aql::AQLQuery;
+use crate::lib::database::aql::{
+	AQLFilterOperation, AQLNode, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
+};
 
 pub mod get;
 pub mod get_all;
+pub mod update;
 
 type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
 
@@ -93,6 +101,7 @@ where
 		vec![
 			self.register::<Get>(data.clone()),
 			self.register::<GetAll>(data.clone()),
+			self.register::<Update>(data.clone()),
 		];
 	}
 
@@ -228,4 +237,43 @@ where
 	}
 
 	Value::Object(object)
+}
+
+fn get_by_id_filter() -> Box<dyn AQLNode> {
+	Box::new(AQLFilterOperation {
+		left_node: Box::new(AQLQueryParameter("_key".to_string())),
+		operation: AQLOperation::Equal,
+		right_node: Box::new(AQLQueryBind("id".to_string())),
+	})
+}
+
+fn get_single_entry<S>(
+	entries: Result<Vec<JsonValue>, ClientError>,
+	entity_name: String,
+) -> ExecutionResult<S>
+where
+	S: ScalarValue + Send + Sync,
+{
+	let not_found_error = NotFoundError::new(entity_name).into_field_error();
+
+	return match entries {
+		Ok(data) => {
+			if let Some(first) = data.first() {
+				let time = std::time::Instant::now();
+
+				let ret = Ok(convert_json_to_juniper_value(first.as_object().unwrap()));
+
+				println!("Conversion: {:?}", time.elapsed());
+
+				return ret;
+			}
+
+			Err(not_found_error)
+		}
+		Err(e) => {
+			println!("{:?}", e);
+
+			Err(not_found_error)
+		}
+	};
 }

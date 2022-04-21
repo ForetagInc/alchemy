@@ -1,19 +1,20 @@
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
-use juniper::{Arguments, Registry, ScalarValue, ID};
+use juniper::{Arguments, ID, Registry, ScalarValue};
 use rust_arango::{AqlQuery, ClientError};
 use serde_json::Value as JsonValue;
 
 use crate::api::schema::fields::{Entity, EntityData};
-use crate::api::schema::operations::{get_by_id_filter, get_single_entry, FutureType, Operation,
+use crate::api::schema::operations::{
+	get_by_id_filter, get_single_entry, FutureType, Operation,
 	OperationData, OperationRegistry,
 };
-use crate::lib::database::aql::AQLQuery;
+use crate::lib::database::aql::{AQLQuery, AQLQueryMethod};
 use crate::lib::database::DATABASE;
 
-pub struct Get;
+pub struct Update;
 
-impl<S> Operation<S> for Get
+impl<S> Operation<S> for Update
 where
 	S: ScalarValue + Send + Sync,
 {
@@ -27,8 +28,10 @@ where
 		let entity = &data.entity;
 		let collection = &entity.collection_name;
 
+		query.method = AQLQueryMethod::Update;
 		query.filter = Some(get_by_id_filter());
-		query.limit = Some(1);
+
+		println!("Query AQL Filter generation: {:?}", time.elapsed());
 
 		Box::pin(async move {
 			let query_str = query.to_aql();
@@ -38,6 +41,7 @@ where
 			let entries_query = AqlQuery::builder()
 				.query(&query_str)
 				.bind_var("@collection".to_string(), collection.clone())
+				// TODO: Make ID come from int and string not only string
 				.bind_var(
 					query.get_argument_key("id"),
 					arguments.get::<String>("id").unwrap(),
@@ -58,7 +62,7 @@ where
 
 	fn get_operation_name(data: &OperationData<S>) -> String {
 		format!(
-			"get{}",
+			"update{}",
 			pluralizer::pluralize(
 				data.entity
 					.name
@@ -72,7 +76,7 @@ where
 
 	fn get_arguments<'r, 'd>(
 		registry: &mut Registry<'r, S>,
-		_: &'d OperationData<S>,
+		_data: &'d OperationData<S>,
 	) -> Vec<Argument<'r, S>> {
 		vec![registry.arg::<ID>("id", &())]
 	}
@@ -83,7 +87,7 @@ where
 		data: &OperationData<S>,
 		operation_registry: &OperationRegistry<S>,
 	) -> Field<'r, S> {
-		registry.field::<Option<Entity>>(
+		registry.field::<Entity>(
 			name,
 			&EntityData {
 				data,
