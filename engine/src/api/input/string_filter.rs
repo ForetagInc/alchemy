@@ -101,15 +101,19 @@ where
 					node.nodes.push(match key.item.as_str() {
 						"_eq" => StringEqual::get_aql_filter_node(&attribute, &value.item),
 						"_gt" => StringGreaterThan::get_aql_filter_node(&attribute, &value.item),
-						"_gte" => StringGreaterOrEqualThan::get_aql_filter_node(&attribute, &value.item),
+						"_gte" => {
+							StringGreaterOrEqualThan::get_aql_filter_node(&attribute, &value.item)
+						}
 						"_like" => StringLike::get_aql_filter_node(&attribute, &value.item),
 						"_lt" => StringLessThan::get_aql_filter_node(&attribute, &value.item),
-						"_lte" => StringLessOrEqualThan::get_aql_filter_node(&attribute, &value.item),
+						"_lte" => {
+							StringLessOrEqualThan::get_aql_filter_node(&attribute, &value.item)
+						}
 						"_neq" => StringNotEqual::get_aql_filter_node(&attribute, &value.item),
 						"_nlike" => StringLike::get_aql_filter_node(&attribute, &value.item),
 						"_nregex" => StringNotRegex::get_aql_filter_node(&attribute, &value.item),
 						"_regex" => StringRegex::get_aql_filter_node(&attribute, &value.item),
-						_ => unreachable!()
+						_ => unreachable!(),
 					});
 				}
 			}
