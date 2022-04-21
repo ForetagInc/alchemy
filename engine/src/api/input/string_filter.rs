@@ -57,7 +57,16 @@ where
 	{
 		let mut args = Vec::new();
 
-		args.push(StringEq::get_schema_argument(registry));
+		args.push(StringEqual::get_schema_argument(registry));
+		args.push(StringGreaterThan::get_schema_argument(registry));
+		args.push(StringGreaterOrEqualThan::get_schema_argument(registry));
+		args.push(StringLike::get_schema_argument(registry));
+		args.push(StringLessThan::get_schema_argument(registry));
+		args.push(StringLessOrEqualThan::get_schema_argument(registry));
+		args.push(StringNotEqual::get_schema_argument(registry));
+		args.push(StringLike::get_schema_argument(registry));
+		args.push(StringNotRegex::get_schema_argument(registry));
+		args.push(StringRegex::get_schema_argument(registry));
 
 		registry
 			.build_input_object_type::<Self>(info, &args)
@@ -89,13 +98,19 @@ where
 		match value {
 			InputValue::Object(items) => {
 				for (key, value) in items {
-					match key.item.as_str() {
-						"_eq" => node.nodes.push(Box::new(StringEq::get_aql_filter_node(
-							&attribute,
-							&value.item,
-						))),
-						_ => {}
-					}
+					node.nodes.push(match key.item.as_str() {
+						"_eq" => StringEqual::get_aql_filter_node(&attribute, &value.item),
+						"_gt" => StringGreaterThan::get_aql_filter_node(&attribute, &value.item),
+						"_gte" => StringGreaterOrEqualThan::get_aql_filter_node(&attribute, &value.item),
+						"_like" => StringLike::get_aql_filter_node(&attribute, &value.item),
+						"_lt" => StringLessThan::get_aql_filter_node(&attribute, &value.item),
+						"_lte" => StringLessOrEqualThan::get_aql_filter_node(&attribute, &value.item),
+						"_neq" => StringNotEqual::get_aql_filter_node(&attribute, &value.item),
+						"_nlike" => StringLike::get_aql_filter_node(&attribute, &value.item),
+						"_nregex" => StringNotRegex::get_aql_filter_node(&attribute, &value.item),
+						"_regex" => StringRegex::get_aql_filter_node(&attribute, &value.item),
+						_ => unreachable!()
+					});
 				}
 			}
 			_ => {}
@@ -105,9 +120,38 @@ where
 	}
 }
 
-pub struct StringEq;
+fn get_aql_value<S>(value: &InputValue<S>) -> Box<dyn AQLNode>
+where
+	S: ScalarValue,
+{
+	match value.as_string_value() {
+		None => Box::new(AQLQueryRaw("null".to_string())),
+		Some(v) => Box::new(AQLQueryValue(v.to_string())),
+	}
+}
 
-impl<S> FilterOperation<S> for StringEq
+fn get_aql_parameter(param: &str) -> Box<AQLQueryParameter> {
+	Box::new(AQLQueryParameter(param.to_string()))
+}
+
+fn get_filter_operation<S>(
+	param: &str,
+	operation: AQLOperation,
+	value: &InputValue<S>,
+) -> Box<dyn AQLNode>
+where
+	S: ScalarValue,
+{
+	Box::new(AQLFilterOperation {
+		left_node: get_aql_parameter(param),
+		operation,
+		right_node: get_aql_value(value),
+	})
+}
+
+pub struct StringEqual;
+
+impl<S> FilterOperation<S> for StringEqual
 where
 	S: ScalarValue,
 {
@@ -116,20 +160,191 @@ where
 	}
 }
 
-impl StringEq {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> impl AQLNode
+impl StringEqual {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
 	where
 		S: ScalarValue,
 	{
-		let right_node: Box<dyn AQLNode> = match value.as_string_value() {
-			None => Box::new(AQLQueryRaw("null".to_string())),
-			Some(v) => Box::new(AQLQueryValue(v.to_string())),
-		};
+		get_filter_operation(attribute, AQLOperation::Equal, value)
+	}
+}
 
-		AQLFilterOperation {
-			left_node: Box::new(AQLQueryParameter(attribute.to_string())),
-			operation: AQLOperation::EQUAL,
-			right_node,
-		}
+pub struct StringGreaterThan;
+
+impl<S> FilterOperation<S> for StringGreaterThan
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_gt", &())
+	}
+}
+
+impl StringGreaterThan {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::GreaterThan, value)
+	}
+}
+
+pub struct StringGreaterOrEqualThan;
+
+impl<S> FilterOperation<S> for StringGreaterOrEqualThan
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_gte", &())
+	}
+}
+
+impl StringGreaterOrEqualThan {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::GreaterOrEqualThan, value)
+	}
+}
+
+pub struct StringLike;
+
+impl<S> FilterOperation<S> for StringLike
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_like", &())
+	}
+}
+
+impl StringLike {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::Like, value)
+	}
+}
+
+pub struct StringLessThan;
+
+impl<S> FilterOperation<S> for StringLessThan
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_lt", &())
+	}
+}
+
+impl StringLessThan {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::LessThan, value)
+	}
+}
+
+pub struct StringLessOrEqualThan;
+
+impl<S> FilterOperation<S> for StringLessOrEqualThan
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_lte", &())
+	}
+}
+
+impl StringLessOrEqualThan {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::LessOrEqualThan, value)
+	}
+}
+
+pub struct StringNotEqual;
+
+impl<S> FilterOperation<S> for StringNotEqual
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_neq", &())
+	}
+}
+
+impl StringNotEqual {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::NotEqual, value)
+	}
+}
+
+pub struct StringNotLike;
+
+impl<S> FilterOperation<S> for StringNotLike
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_nlike", &())
+	}
+}
+
+impl StringNotLike {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::NotLike, value)
+	}
+}
+
+pub struct StringNotRegex;
+
+impl<S> FilterOperation<S> for StringNotRegex
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_nregex", &())
+	}
+}
+
+impl StringNotRegex {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::NotRegex, value)
+	}
+}
+
+pub struct StringRegex;
+
+impl<S> FilterOperation<S> for StringRegex
+where
+	S: ScalarValue,
+{
+	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
+		registry.arg::<Option<String>>("_regex", &())
+	}
+}
+
+impl StringRegex {
+	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
+	where
+		S: ScalarValue,
+	{
+		get_filter_operation(attribute, AQLOperation::Regex, value)
 	}
 }

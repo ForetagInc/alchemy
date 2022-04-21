@@ -252,7 +252,7 @@ where
 
 		query.filter = Some(Box::new(AQLFilterOperation {
 			left_node: Box::new(AQLQueryParameter("_key".to_string())),
-			operation: AQLOperation::EQUAL,
+			operation: AQLOperation::Equal,
 			right_node: Box::new(AQLQueryBind("id".to_string())),
 		}));
 		query.limit = Some(1);

@@ -8,8 +8,8 @@ use juniper::{
 use std::marker::PhantomData;
 
 use crate::api::schema::operations::{OperationData, OperationEntry, OperationRegistry};
-use crate::api::schema::{owns_relationship, QueryData};
-use crate::lib::database::api::{DbProperty, DbRelationship, DbRelationshipType, DbScalarType};
+use crate::api::schema::QueryData;
+use crate::lib::database::api::{DbProperty, DbRelationship, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryRelationship};
 
 pub struct QueryFieldFactory;

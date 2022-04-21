@@ -128,13 +128,31 @@ pub struct AQLFilter {
 }
 
 pub enum AQLOperation {
-	EQUAL,
+	Equal,
+	GreaterThan,
+	GreaterOrEqualThan,
+	Like,
+	LessThan,
+	LessOrEqualThan,
+	NotEqual,
+	NotLike,
+	NotRegex,
+	Regex,
 }
 
 impl From<&str> for AQLOperation {
 	fn from(str: &str) -> Self {
 		match str {
-			"_eq" => Self::EQUAL,
+			"_eq" => Self::Equal,
+			"_gt" => Self::GreaterThan,
+			"_gte" => Self::GreaterOrEqualThan,
+			"_like" => Self::Like,
+			"_lt" => Self::LessThan,
+			"_lte" => Self::LessOrEqualThan,
+			"_neq" => Self::NotEqual,
+			"_nlike" => Self::NotLike,
+			"_nregex" => Self::NotRegex,
+			"_regex" => Self::Regex,
 			&_ => unreachable!(),
 		}
 	}
@@ -143,8 +161,18 @@ impl From<&str> for AQLOperation {
 impl ToString for AQLOperation {
 	fn to_string(&self) -> String {
 		return match self {
-			AQLOperation::EQUAL => "==".to_string(),
-		};
+			AQLOperation::Equal => "==",
+			AQLOperation::GreaterThan => ">",
+			AQLOperation::GreaterOrEqualThan => ">=",
+			AQLOperation::Like => "LIKE",
+			AQLOperation::LessThan => "<",
+			AQLOperation::LessOrEqualThan => "<=",
+			AQLOperation::NotEqual => "!=",
+			AQLOperation::NotLike => "NOT LIKE",
+			AQLOperation::NotRegex => "=~",
+			AQLOperation::Regex => "!~",
+		}
+		.to_string();
 	}
 }
 
