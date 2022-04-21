@@ -5,8 +5,8 @@ use rust_arango::{AqlQuery, ClientError};
 use serde_json::Value as JsonValue;
 
 use crate::api::schema::fields::{Entity, EntityData};
-use crate::api::schema::operations::{get_by_id_filter, get_single_entry, FutureType, Operation,
-	OperationData, OperationRegistry,
+use crate::api::schema::operations::{
+	get_by_id_filter, get_single_entry, FutureType, Operation, OperationData, OperationRegistry,
 };
 use crate::lib::database::aql::AQLQuery;
 use crate::lib::database::DATABASE;
@@ -20,7 +20,7 @@ where
 	fn call<'b>(
 		data: &'b OperationData<S>,
 		arguments: &'b Arguments<S>,
-		mut query: AQLQuery<'b>,
+		mut query: AQLQuery,
 	) -> FutureType<'b, S> {
 		let time = std::time::Instant::now();
 

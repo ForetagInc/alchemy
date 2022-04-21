@@ -36,11 +36,8 @@ pub struct OperationEntry<S>
 where
 	S: ScalarValue + Send + Sync,
 {
-	pub closure: for<'a> fn(
-		&'a OperationData<S>,
-		&'a juniper::Arguments<S>,
-		AQLQuery<'a>,
-	) -> FutureType<'a, S>,
+	pub closure:
+		for<'a> fn(&'a OperationData<S>, &'a juniper::Arguments<S>, AQLQuery) -> FutureType<'a, S>,
 	pub arguments_closure:
 		for<'a> fn(&mut Registry<'a, S>, data: &OperationData<S>) -> Vec<Argument<'a, S>>,
 	pub field_closure: for<'a> fn(
@@ -68,7 +65,7 @@ where
 		&'b self,
 		key: &str,
 		arguments: &'b Arguments<S>,
-		query: AQLQuery<'b>,
+		query: AQLQuery,
 	) -> Option<FutureType<'b, S>> {
 		self.operations
 			.get(key)
@@ -143,7 +140,7 @@ where
 	fn call<'b>(
 		data: &'b OperationData<S>,
 		arguments: &'b Arguments<S>,
-		query: AQLQuery<'b>,
+		query: AQLQuery,
 	) -> FutureType<'b, S>;
 
 	fn get_operation_name(data: &OperationData<S>) -> String;

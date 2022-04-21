@@ -2,8 +2,8 @@ use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFi
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Field, MetaType};
 use juniper::{
-	Arguments, BoxFuture, ExecutionResult, Executor, GraphQLType, GraphQLValue, GraphQLValueAsync,
-	Registry, ScalarValue, Selection, Spanning, Value,
+	Arguments, BoxFuture, ExecutionResult, Executor, FromInputValue, GraphQLType, GraphQLValue,
+	GraphQLValueAsync, InputValue, Registry, ScalarValue, Selection, Spanning, Value,
 };
 use std::marker::PhantomData;
 
@@ -65,10 +65,13 @@ fn build_field_from_property<'r, S>(
 	property: &DbProperty,
 	scalar_type: &DbScalarType,
 	enforce_required: bool,
+	remove_required: bool,
 ) -> Field<'r, S>
 where
 	S: ScalarValue,
 {
+	let required = property.required && !remove_required;
+
 	fn build_field<'r, T, S>(
 		registry: &mut Registry<'r, S>,
 		property: &DbProperty,
@@ -90,9 +93,10 @@ where
 
 	match scalar_type {
 		DbScalarType::Array(t) => {
-			let mut field = build_field_from_property(registry, property, &t, false);
+			let mut field =
+				build_field_from_property(registry, property, &t, false, remove_required);
 
-			if property.required && enforce_required {
+			if required && enforce_required {
 				field.field_type = juniper::Type::NonNullList(Box::new(field.field_type));
 			} else {
 				field.field_type = juniper::Type::List(Box::new(field.field_type));
@@ -104,21 +108,17 @@ where
 		DbScalarType::Enum(values) => build_field::<GraphQLEnum, S>(
 			registry,
 			property,
-			property.required,
+			required,
 			&DbEnumInfo {
 				name: property.associated_type.clone().unwrap(),
 				properties: values.clone(),
 			},
 		),
-		DbScalarType::String => {
-			build_field::<String, S>(registry, property, property.required, &())
-		}
-		DbScalarType::Object => {
-			build_field::<String, S>(registry, property, property.required, &())
-		}
-		DbScalarType::Float => build_field::<f64, S>(registry, property, property.required, &()),
-		DbScalarType::Int => build_field::<i32, S>(registry, property, property.required, &()),
-		DbScalarType::Boolean => build_field::<bool, S>(registry, property, property.required, &()),
+		DbScalarType::String => build_field::<String, S>(registry, property, required, &()),
+		DbScalarType::Object => build_field::<String, S>(registry, property, required, &()),
+		DbScalarType::Float => build_field::<f64, S>(registry, property, required, &()),
+		DbScalarType::Int => build_field::<i32, S>(registry, property, required, &()),
+		DbScalarType::Boolean => build_field::<bool, S>(registry, property, required, &()),
 	}
 }
 
@@ -158,7 +158,8 @@ where
 		let mut fields = Vec::new();
 
 		for property in &info.data.entity.properties {
-			let field = build_field_from_property(registry, &property, &property.scalar_type, true);
+			let field =
+				build_field_from_property(registry, &property, &property.scalar_type, true, false);
 
 			fields.push(field);
 		}
@@ -263,7 +264,7 @@ fn get_query_from_graphql<'a, S>(
 	data: &'a QueryData<S>,
 	query_id: Option<u32>,
 	executor: &'a Executor<'a, 'a, <QueryFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
-) -> AQLQuery<'a>
+) -> AQLQuery
 where
 	S: ScalarValue + Send + Sync,
 {
@@ -314,10 +315,9 @@ where
 						&meta_field.arguments,
 					);
 
-					// All entities at least have the get{Entity} operation
 					let operation_data = data
 						.operation_registry
-						.get_operation_data(entity_name)
+						.get_operation_data(meta_field.field_type.innermost_name())
 						.unwrap();
 
 					inner_query.limit = args.get::<i32>("limit");
@@ -348,4 +348,66 @@ where
 	}
 
 	query
+}
+
+pub struct EntitySet<'a> {
+	_marker: PhantomData<&'a ()>,
+}
+
+pub struct EntitySetData<'a, S>
+where
+	S: ScalarValue,
+{
+	pub name: String,
+	pub data: &'a OperationData<S>,
+}
+
+impl<'a, S> GraphQLType<S> for EntitySet<'a>
+where
+	S: ScalarValue + Send + Sync,
+{
+	fn name(info: &Self::TypeInfo) -> Option<&str> {
+		Some(info.name.as_str())
+	}
+
+	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
+	where
+		S: 'r,
+	{
+		let mut fields = Vec::new();
+
+		for property in &info.data.entity.properties {
+			let field =
+				build_field_from_property(registry, &property, &property.scalar_type, false, true);
+
+			fields.push(field);
+		}
+
+		registry
+			.build_object_type::<EntitySet>(info, &fields)
+			.into_meta()
+	}
+}
+
+impl<'a, S> GraphQLValue<S> for EntitySet<'a>
+where
+	S: ScalarValue + Send + Sync,
+{
+	type Context = ();
+	type TypeInfo = EntitySetData<'a, S>;
+
+	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+		<Self as GraphQLType<S>>::name(info)
+	}
+}
+
+impl<'a, S> FromInputValue<S> for EntitySet<'a>
+where
+	S: ScalarValue + Send + Sync,
+{
+	fn from_input_value(_: &InputValue<S>) -> Option<Self> {
+		Some(Self {
+			_marker: Default::default(),
+		})
+	}
 }

@@ -15,16 +15,6 @@ use crate::lib::database::api::*;
 
 pub type Schema = RootNode<'static, Query, EmptyMutation, EmptySubscription>;
 
-fn owns_relationship(relationship: &DbRelationship, entity_name: &str) -> bool {
-	match relationship.direction {
-		DbRelationshipDirection::Inbound => relationship.to.name == entity_name,
-		DbRelationshipDirection::Outbound => relationship.from.name == entity_name,
-		DbRelationshipDirection::Any => {
-			relationship.from.name == entity_name || relationship.to.name == entity_name
-		}
-	}
-}
-
 pub fn schema(map: DbMap) -> Schema {
 	let mut operation_registry = OperationRegistry::new();
 
@@ -34,7 +24,7 @@ pub fn schema(map: DbMap) -> Schema {
 				let mut relationships = Vec::new();
 
 				for relationship in &map.relationships {
-					if owns_relationship(&relationship, &t.name) {
+					if relationship.from.name == t.name {
 						relationships.push(relationship.clone())
 					}
 				}

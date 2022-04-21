@@ -12,31 +12,29 @@ pub struct AQLQueryRelationship {
 
 pub enum AQLQueryMethod {
 	Get,
-	Update
+	Update,
 }
 
-pub struct AQLQuery<'a> {
+pub struct AQLQuery {
 	pub properties: Vec<AQLProperty>,
 	pub method: AQLQueryMethod,
 	pub filter: Option<Box<dyn AQLNode>>,
-	pub parameters: HashMap<&'a str, Value>,
-	pub relations: HashMap<String, AQLQuery<'a>>,
-	pub updates: HashMap<String, AQLQuery<'a>>,
+	pub relations: HashMap<String, AQLQuery>,
+	pub updates: Value,
 	pub limit: Option<i32>,
 	pub relationship: Option<AQLQueryRelationship>,
 
 	pub id: u32,
 }
 
-impl<'a> AQLQuery<'a> {
-	pub fn new(id: u32) -> AQLQuery<'a> {
+impl AQLQuery {
+	pub fn new(id: u32) -> AQLQuery {
 		AQLQuery {
 			properties: Vec::new(),
 			method: AQLQueryMethod::Get,
 			filter: None,
-			parameters: HashMap::new(),
 			relations: HashMap::new(),
-			updates: HashMap::new(),
+			updates: Value::Null,
 			limit: None,
 			relationship: None,
 			id,
@@ -53,18 +51,14 @@ impl<'a> AQLQuery<'a> {
 	pub fn describe_parameters(&self) -> String {
 		let variable = match self.method {
 			AQLQueryMethod::Get => self.get_variable_name(),
-			AQLQueryMethod::Update => "NEW".to_string()
+			AQLQueryMethod::Update => "NEW".to_string(),
 		};
 
 		format!(
 			"{{{}}}",
 			self.properties
 				.iter()
-				.map(|p| format!(
-					"\"{name}\": {}.`{name}`",
-					variable,
-					name = p.name
-				))
+				.map(|p| format!("\"{name}\": {}.`{name}`", variable, name = p.name))
 				.chain(self.relations.iter().map(|(key, query)| format!(
 					"\"{}\": {}",
 					key,
@@ -107,14 +101,10 @@ impl<'a> AQLQuery<'a> {
 		format!(
 			"FOR {var} IN @@collection {} UPDATE {var}.`_key` WITH {} IN @@collection RETURN {}",
 			self.describe_filter(),
-			self.describe_update(),
+			self.updates.to_string(),
 			self.describe_parameters(),
 			var = self.get_variable_name(),
 		)
-	}
-
-	fn describe_update(&self) -> String {
-
 	}
 
 	fn describe_limit(&self) -> String {
@@ -142,7 +132,7 @@ impl<'a> AQLQuery<'a> {
 	}
 }
 
-unsafe impl<'a> Send for AQLQuery<'a> {}
+unsafe impl Send for AQLQuery {}
 
 #[derive(Debug)]
 pub struct AQLProperty {

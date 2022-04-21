@@ -1,13 +1,12 @@
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
-use juniper::{Arguments, ID, Registry, ScalarValue};
+use juniper::{Arguments, Registry, ScalarValue, ID};
 use rust_arango::{AqlQuery, ClientError};
 use serde_json::Value as JsonValue;
 
-use crate::api::schema::fields::{Entity, EntityData};
+use crate::api::schema::fields::{Entity, EntityData, EntitySet, EntitySetData};
 use crate::api::schema::operations::{
-	get_by_id_filter, get_single_entry, FutureType, Operation,
-	OperationData, OperationRegistry,
+	get_by_id_filter, get_single_entry, FutureType, Operation, OperationData, OperationRegistry,
 };
 use crate::lib::database::aql::{AQLQuery, AQLQueryMethod};
 use crate::lib::database::DATABASE;
@@ -21,7 +20,7 @@ where
 	fn call<'b>(
 		data: &'b OperationData<S>,
 		arguments: &'b Arguments<S>,
-		mut query: AQLQuery<'b>,
+		mut query: AQLQuery,
 	) -> FutureType<'b, S> {
 		let time = std::time::Instant::now();
 
@@ -76,9 +75,18 @@ where
 
 	fn get_arguments<'r, 'd>(
 		registry: &mut Registry<'r, S>,
-		_data: &'d OperationData<S>,
+		data: &'d OperationData<S>,
 	) -> Vec<Argument<'r, S>> {
-		vec![registry.arg::<ID>("id", &())]
+		vec![
+			registry.arg::<ID>("id", &()),
+			// registry.arg::<EntitySet>(
+			// 	"_set",
+			// 	&EntitySetData {
+			// 		name: format!("{}Set", data.entity.name.as_str()),
+			// 		data,
+			// 	},
+			// ),
+		]
 	}
 
 	fn build_field<'r>(

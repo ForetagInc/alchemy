@@ -22,7 +22,7 @@ where
 	fn call<'b>(
 		data: &'b OperationData<S>,
 		arguments: &'b Arguments<S>,
-		mut query: AQLQuery<'b>,
+		mut query: AQLQuery,
 	) -> FutureType<'b, S> {
 		let mut time = std::time::Instant::now();
 
