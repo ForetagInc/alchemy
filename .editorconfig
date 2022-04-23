@@ -1,3 +1,7 @@
 [*.{toml,rs,json,js,ts}]
 indent_size = 4
 indent_style = tab
+
+[BUILD]
+indent_size = 4
+indent_style = space
