@@ -12,6 +12,7 @@ pub struct AQLQueryRelationship {
 pub enum AQLQueryMethod {
 	Get,
 	Update,
+	Remove,
 }
 
 pub struct AQLQuery {
@@ -44,13 +45,15 @@ impl AQLQuery {
 		match self.method {
 			AQLQueryMethod::Get => self.to_get_aql(),
 			AQLQueryMethod::Update => self.to_update_aql(),
+			AQLQueryMethod::Remove => self.to_remove_aql(),
 		}
 	}
 
 	pub fn describe_parameters(&self) -> String {
 		let variable = match self.method {
-			AQLQueryMethod::Get => self.get_variable_name(),
 			AQLQueryMethod::Update => "NEW".to_string(),
+			AQLQueryMethod::Remove => "OLD".to_string(),
+			_ => self.get_variable_name(),
 		};
 
 		format!(
@@ -101,6 +104,16 @@ impl AQLQuery {
 			"FOR {var} IN @@collection {} UPDATE {var}.`_key` WITH {} IN @@collection {} RETURN {}",
 			self.describe_filter(),
 			self.updates,
+			self.describe_limit(),
+			self.describe_parameters(),
+			var = self.get_variable_name(),
+		)
+	}
+
+	fn to_remove_aql(&self) -> String {
+		format!(
+			"FOR {var} IN @@collection {} REMOVE {var}.`_key` IN @@collection {} RETURN {}",
+			self.describe_filter(),
 			self.describe_limit(),
 			self.describe_parameters(),
 			var = self.get_variable_name(),

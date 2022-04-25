@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use crate::api::schema::operations::get::Get;
 use crate::api::schema::operations::get_all::GetAll;
+use crate::api::schema::operations::remove::Remove;
 use crate::api::schema::operations::update::Update;
 use crate::api::schema::operations::update_all::UpdateAll;
 use crate::lib::database::api::{DbEntity, DbRelationship};
@@ -23,6 +24,7 @@ pub mod get;
 pub mod get_all;
 pub mod update;
 pub mod update_all;
+pub mod remove;
 
 type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
 
@@ -116,6 +118,7 @@ where
 			self.register::<GetAll>(data.clone(), OperationType::Query),
 			self.register::<Update>(data.clone(), OperationType::Mutation),
 			self.register::<UpdateAll>(data.clone(), OperationType::Mutation),
+			self.register::<Remove>(data.clone(), OperationType::Mutation),
 		];
 	}
 
