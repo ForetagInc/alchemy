@@ -79,13 +79,13 @@ where
 	) -> Vec<Argument<'r, S>> {
 		vec![
 			registry.arg::<ID>("id", &()),
-			// registry.arg::<EntitySet>(
-			// 	"_set",
-			// 	&EntitySetData {
-			// 		name: format!("{}Set", data.entity.name.as_str()),
-			// 		data,
-			// 	},
-			// ),
+			registry.arg::<EntitySet>(
+				"_set",
+				&EntitySetData {
+					name: format!("{}Set", data.entity.name.as_str()),
+					data,
+				},
+			),
 		]
 	}
 

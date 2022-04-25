@@ -1,6 +1,6 @@
 use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
-use juniper::meta::{Field, MetaType};
+use juniper::meta::{Argument, Field, MetaType};
 use juniper::{
 	Arguments, BoxFuture, ExecutionResult, Executor, FromInputValue, GraphQLType, GraphQLValue,
 	GraphQLValueAsync, InputValue, Registry, ScalarValue, Selection, Spanning, Value,
@@ -65,12 +65,11 @@ fn build_field_from_property<'r, S>(
 	property: &DbProperty,
 	scalar_type: &DbScalarType,
 	enforce_required: bool,
-	remove_required: bool,
 ) -> Field<'r, S>
 where
 	S: ScalarValue,
 {
-	let required = property.required && !remove_required;
+	let required = property.required;
 
 	fn build_field<'r, T, S>(
 		registry: &mut Registry<'r, S>,
@@ -94,7 +93,7 @@ where
 	match scalar_type {
 		DbScalarType::Array(t) => {
 			let mut field =
-				build_field_from_property(registry, property, &t, false, remove_required);
+				build_field_from_property(registry, property, &t, false);
 
 			if required && enforce_required {
 				field.field_type = juniper::Type::NonNullList(Box::new(field.field_type));
@@ -119,6 +118,38 @@ where
 		DbScalarType::Float => build_field::<f64, S>(registry, property, required, &()),
 		DbScalarType::Int => build_field::<i32, S>(registry, property, required, &()),
 		DbScalarType::Boolean => build_field::<bool, S>(registry, property, required, &()),
+	}
+}
+
+fn build_argument_from_property<'r, S>(
+	registry: &mut Registry<'r, S>,
+	property: &DbProperty,
+	scalar_type: &DbScalarType
+) -> Argument<'r, S>
+	where
+		S: ScalarValue,
+{
+	match scalar_type {
+		DbScalarType::Array(t) => {
+			let mut argument =
+				build_argument_from_property(registry, property, &t);
+
+			argument.arg_type = juniper::Type::List(Box::new(argument.arg_type));
+
+			argument
+		}
+
+		DbScalarType::Enum(values) => registry.arg::<Option<GraphQLEnum>>(property.name.as_str(),
+			&DbEnumInfo {
+				name: property.associated_type.clone().unwrap(),
+				properties: values.clone(),
+			},
+		),
+		DbScalarType::String => registry.arg::<Option<String>>(property.name.as_str(), &()),
+		DbScalarType::Object => registry.arg::<Option<String>>(property.name.as_str(), &()),
+		DbScalarType::Float => registry.arg::<Option<f64>>(property.name.as_str(), &()),
+		DbScalarType::Int => registry.arg::<Option<i32>>(property.name.as_str(), &()),
+		DbScalarType::Boolean => registry.arg::<Option<bool>>(property.name.as_str(), &()),
 	}
 }
 
@@ -159,7 +190,7 @@ where
 
 		for property in &info.data.entity.properties {
 			let field =
-				build_field_from_property(registry, &property, &property.scalar_type, true, false);
+				build_field_from_property(registry, &property, &property.scalar_type, true);
 
 			fields.push(field);
 		}
@@ -374,17 +405,17 @@ where
 	where
 		S: 'r,
 	{
-		let mut fields = Vec::new();
+		let mut args = Vec::new();
 
 		for property in &info.data.entity.properties {
-			let field =
-				build_field_from_property(registry, &property, &property.scalar_type, false, true);
+			let arg =
+				build_argument_from_property(registry, &property, &property.scalar_type);
 
-			fields.push(field);
+			args.push(arg);
 		}
 
 		registry
-			.build_object_type::<EntitySet>(info, &fields)
+			.build_input_object_type::<EntitySet>(info, &args)
 			.into_meta()
 	}
 }
