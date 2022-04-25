@@ -6,7 +6,9 @@ use serde_json::Value as JsonValue;
 
 use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use crate::api::schema::fields::{Entity, EntityData};
-use crate::api::schema::operations::{FutureType, get_multiple_entries, Operation, OperationData, OperationRegistry};
+use crate::api::schema::operations::{
+	get_multiple_entries, FutureType, Operation, OperationData, OperationRegistry,
+};
 use crate::lib::database::aql::AQLQuery;
 use crate::lib::database::DATABASE;
 

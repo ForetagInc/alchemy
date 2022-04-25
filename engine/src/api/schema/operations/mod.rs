@@ -50,6 +50,13 @@ where
 	) -> Field<'a, S>,
 
 	pub data: Arc<OperationData<S>>,
+	pub operation_type: OperationType,
+}
+
+#[derive(PartialEq)]
+pub enum OperationType {
+	Query,
+	Mutation,
 }
 
 impl<S> OperationRegistry<S>
@@ -74,8 +81,15 @@ where
 			.map(|o| (o.closure)(&o.data, arguments, query))
 	}
 
-	pub fn get_operations(&self) -> &HashMap<String, OperationEntry<S>> {
-		&self.operations
+	pub fn get_operations(
+		&self,
+		operation_type: OperationType,
+	) -> HashMap<&String, &OperationEntry<S>> {
+		self
+			.operations
+			.iter()
+			.filter(|(_, entry)| entry.operation_type == operation_type)
+			.collect()
 	}
 
 	pub fn get_operation(&self, key: &str) -> Option<&OperationEntry<S>> {
@@ -98,14 +112,18 @@ where
 			.insert(entity.name.clone(), data.clone());
 
 		vec![
-			self.register::<Get>(data.clone()),
-			self.register::<GetAll>(data.clone()),
-			self.register::<Update>(data.clone()),
-			self.register::<UpdateAll>(data.clone()),
+			self.register::<Get>(data.clone(), OperationType::Query),
+			self.register::<GetAll>(data.clone(), OperationType::Query),
+			self.register::<Update>(data.clone(), OperationType::Mutation),
+			self.register::<UpdateAll>(data.clone(), OperationType::Mutation),
 		];
 	}
 
-	fn register<T: 'static>(&mut self, data: Arc<OperationData<S>>) -> String
+	fn register<T: 'static>(
+		&mut self,
+		data: Arc<OperationData<S>>,
+		operation_type: OperationType,
+	) -> String
 	where
 		T: Operation<S>,
 	{
@@ -118,6 +136,7 @@ where
 				arguments_closure: T::get_arguments,
 				field_closure: T::build_field,
 				data,
+				operation_type,
 			},
 		);
 
@@ -278,11 +297,9 @@ where
 	};
 }
 
-fn get_multiple_entries<S>(
-	entries: Result<Vec<JsonValue>, ClientError>,
-) -> ExecutionResult<S>
-	where
-		S: ScalarValue + Send + Sync,
+fn get_multiple_entries<S>(entries: Result<Vec<JsonValue>, ClientError>) -> ExecutionResult<S>
+where
+	S: ScalarValue + Send + Sync,
 {
 	return match entries {
 		Ok(data) => {

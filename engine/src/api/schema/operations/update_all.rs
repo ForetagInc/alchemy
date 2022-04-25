@@ -1,12 +1,14 @@
+use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{Arguments, Registry, ScalarValue};
 use rust_arango::{AqlQuery, ClientError};
 use serde_json::Value as JsonValue;
-use crate::api::input::filter::{EntityFilter, EntityFilterData, get_aql_filter_from_args};
 
 use crate::api::schema::fields::{Entity, EntityData, EntitySet, EntitySetData};
-use crate::api::schema::operations::{FutureType, Operation, OperationData, OperationRegistry, get_multiple_entries};
+use crate::api::schema::operations::{
+	get_multiple_entries, FutureType, Operation, OperationData, OperationRegistry,
+};
 use crate::lib::database::aql::{AQLQuery, AQLQueryMethod};
 use crate::lib::database::DATABASE;
 

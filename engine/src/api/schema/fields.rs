@@ -8,13 +8,13 @@ use juniper::{
 use std::marker::PhantomData;
 
 use crate::api::schema::operations::{OperationData, OperationEntry, OperationRegistry};
-use crate::api::schema::QueryData;
+use crate::api::schema::SchemaData;
 use crate::lib::database::api::{DbProperty, DbRelationship, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryRelationship};
 
-pub struct QueryFieldFactory;
+pub struct SchemaFieldFactory;
 
-impl QueryFieldFactory {
+impl SchemaFieldFactory {
 	pub fn new<'a, S>(
 		name: &str,
 		operation: &OperationEntry<S>,
@@ -37,11 +37,11 @@ impl QueryFieldFactory {
 	pub fn new_resolver<'a, S>(
 		field_name: &'a str,
 		arguments: &'a Arguments<S>,
-	) -> QueryFieldResolver<'a, S>
+	) -> SchemaFieldResolver<'a, S>
 	where
 		S: ScalarValue + Send + Sync,
 	{
-		QueryFieldResolver {
+		SchemaFieldResolver {
 			field_name,
 			arguments,
 		}
@@ -92,8 +92,7 @@ where
 
 	match scalar_type {
 		DbScalarType::Array(t) => {
-			let mut field =
-				build_field_from_property(registry, property, &t, false);
+			let mut field = build_field_from_property(registry, property, &t, false);
 
 			if required && enforce_required {
 				field.field_type = juniper::Type::NonNullList(Box::new(field.field_type));
@@ -124,22 +123,22 @@ where
 fn build_argument_from_property<'r, S>(
 	registry: &mut Registry<'r, S>,
 	property: &DbProperty,
-	scalar_type: &DbScalarType
+	scalar_type: &DbScalarType,
 ) -> Argument<'r, S>
-	where
-		S: ScalarValue,
+where
+	S: ScalarValue,
 {
 	match scalar_type {
 		DbScalarType::Array(t) => {
-			let mut argument =
-				build_argument_from_property(registry, property, &t);
+			let mut argument = build_argument_from_property(registry, property, &t);
 
 			argument.arg_type = juniper::Type::List(Box::new(argument.arg_type));
 
 			argument
 		}
 
-		DbScalarType::Enum(values) => registry.arg::<Option<GraphQLEnum>>(property.name.as_str(),
+		DbScalarType::Enum(values) => registry.arg::<Option<GraphQLEnum>>(
+			property.name.as_str(),
 			&DbEnumInfo {
 				name: property.associated_type.clone().unwrap(),
 				properties: values.clone(),
@@ -189,8 +188,7 @@ where
 		let mut fields = Vec::new();
 
 		for property in &info.data.entity.properties {
-			let field =
-				build_field_from_property(registry, &property, &property.scalar_type, true);
+			let field = build_field_from_property(registry, &property, &property.scalar_type, true);
 
 			fields.push(field);
 		}
@@ -229,7 +227,7 @@ where
 
 /// Phantom GraphQLValue just to implement field resolution
 /// This type won't be shown on the Schema
-pub struct QueryFieldResolver<'a, S>
+pub struct SchemaFieldResolver<'a, S>
 where
 	S: ScalarValue,
 {
@@ -237,19 +235,19 @@ where
 	arguments: &'a Arguments<'a, S>,
 }
 
-impl<'a, S> GraphQLValue<S> for QueryFieldResolver<'a, S>
+impl<'a, S> GraphQLValue<S> for SchemaFieldResolver<'a, S>
 where
 	S: ScalarValue + Send + Sync,
 {
 	type Context = ();
-	type TypeInfo = QueryData<S>;
+	type TypeInfo = SchemaData<S>;
 
 	fn type_name<'i>(&self, _: &'i Self::TypeInfo) -> Option<&'i str> {
 		None
 	}
 }
 
-impl<'a, S> GraphQLValueAsync<S> for QueryFieldResolver<'a, S>
+impl<'a, S> GraphQLValueAsync<S> for SchemaFieldResolver<'a, S>
 where
 	S: ScalarValue + Send + Sync,
 {
@@ -270,11 +268,11 @@ where
 }
 
 async fn resolve_graphql_field<'a, S>(
-	info: &'a QueryData<S>,
+	info: &'a SchemaData<S>,
 	field_name: &str,
 	arguments: &'a Arguments<'a, S>,
 	selection_set: &'a [Selection<'a, S>],
-	executor: &'a Executor<'a, 'a, <QueryFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
+	executor: &'a Executor<'a, 'a, <SchemaFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
 ) -> ExecutionResult<S>
 where
 	S: ScalarValue + Send + Sync,
@@ -292,9 +290,9 @@ where
 fn get_query_from_graphql<'a, S>(
 	selection_set: &'a [Selection<'a, S>],
 	entity_name: &'a str,
-	data: &'a QueryData<S>,
+	data: &'a SchemaData<S>,
 	query_id: Option<u32>,
-	executor: &'a Executor<'a, 'a, <QueryFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
+	executor: &'a Executor<'a, 'a, <SchemaFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
 ) -> AQLQuery
 where
 	S: ScalarValue + Send + Sync,
@@ -354,7 +352,7 @@ where
 					inner_query.limit = args.get::<i32>("limit");
 					inner_query.filter = get_aql_filter_from_args(&args, &operation_data);
 
-					for relationship in &data.relationships {
+					for relationship in &*data.relationships {
 						if relationship.name == response_name {
 							inner_query.relationship = Some(AQLQueryRelationship {
 								edge: relationship.edge.clone(),
@@ -410,8 +408,7 @@ where
 		let mut args = Vec::new();
 
 		for property in &info.data.entity.properties {
-			let arg =
-				build_argument_from_property(registry, &property, &property.scalar_type);
+			let arg = build_argument_from_property(registry, &property, &property.scalar_type);
 
 			args.push(arg);
 		}
