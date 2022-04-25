@@ -382,6 +382,8 @@ where
 }
 
 pub struct EntitySet<'a> {
+	pub data: String,
+
 	_marker: PhantomData<&'a ()>,
 }
 
@@ -436,8 +438,10 @@ impl<'a, S> FromInputValue<S> for EntitySet<'a>
 where
 	S: ScalarValue + Send + Sync,
 {
-	fn from_input_value(_: &InputValue<S>) -> Option<Self> {
+	fn from_input_value(data: &InputValue<S>) -> Option<Self> {
 		Some(Self {
+			data: data.to_string(),
+
 			_marker: Default::default(),
 		})
 	}

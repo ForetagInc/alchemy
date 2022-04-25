@@ -29,6 +29,7 @@ where
 
 		query.method = AQLQueryMethod::Update;
 		query.filter = Some(get_by_id_filter());
+		query.updates = arguments.get::<EntitySet>("_set").unwrap().data;
 
 		println!("Query AQL Filter generation: {:?}", time.elapsed());
 

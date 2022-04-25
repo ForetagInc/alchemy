@@ -1,4 +1,3 @@
-use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::lib::database::api::{DbRelationshipDirection, DbRelationshipType};
@@ -20,7 +19,7 @@ pub struct AQLQuery {
 	pub method: AQLQueryMethod,
 	pub filter: Option<Box<dyn AQLNode>>,
 	pub relations: HashMap<String, AQLQuery>,
-	pub updates: Value,
+	pub updates: String,
 	pub limit: Option<i32>,
 	pub relationship: Option<AQLQueryRelationship>,
 
@@ -34,7 +33,7 @@ impl AQLQuery {
 			method: AQLQueryMethod::Get,
 			filter: None,
 			relations: HashMap::new(),
-			updates: Value::Null,
+			updates: "null".to_string(),
 			limit: None,
 			relationship: None,
 			id,
@@ -101,7 +100,7 @@ impl AQLQuery {
 		format!(
 			"FOR {var} IN @@collection {} UPDATE {var}.`_key` WITH {} IN @@collection RETURN {}",
 			self.describe_filter(),
-			self.updates.to_string(),
+			self.updates,
 			self.describe_parameters(),
 			var = self.get_variable_name(),
 		)

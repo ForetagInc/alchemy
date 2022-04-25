@@ -1,4 +1,4 @@
-use crate::api::schema::errors::NotFoundError;
+use crate::api::schema::errors::{DatabaseError, NotFoundError};
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{
@@ -268,9 +268,9 @@ where
 			Err(not_found_error)
 		}
 		Err(e) => {
-			println!("{:?}", e);
+			let message = format!("{}", e);
 
-			Err(not_found_error)
+			Err(DatabaseError::new(message).into_field_error())
 		}
 	};
 }
