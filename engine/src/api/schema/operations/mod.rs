@@ -13,6 +13,7 @@ use std::sync::Arc;
 use crate::api::schema::operations::get::Get;
 use crate::api::schema::operations::get_all::GetAll;
 use crate::api::schema::operations::update::Update;
+use crate::api::schema::operations::update_all::UpdateAll;
 use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
 	AQLFilterOperation, AQLNode, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
@@ -21,6 +22,7 @@ use crate::lib::database::aql::{
 pub mod get;
 pub mod get_all;
 pub mod update;
+pub mod update_all;
 
 type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
 
@@ -99,6 +101,7 @@ where
 			self.register::<Get>(data.clone()),
 			self.register::<GetAll>(data.clone()),
 			self.register::<Update>(data.clone()),
+			self.register::<UpdateAll>(data.clone()),
 		];
 	}
 
@@ -266,6 +269,34 @@ where
 			}
 
 			Err(not_found_error)
+		}
+		Err(e) => {
+			let message = format!("{}", e);
+
+			Err(DatabaseError::new(message).into_field_error())
+		}
+	};
+}
+
+fn get_multiple_entries<S>(
+	entries: Result<Vec<JsonValue>, ClientError>,
+) -> ExecutionResult<S>
+	where
+		S: ScalarValue + Send + Sync,
+{
+	return match entries {
+		Ok(data) => {
+			let mut output = Vec::<Value<S>>::new();
+
+			let time = std::time::Instant::now();
+
+			for datum in data {
+				output.push(convert_json_to_juniper_value(datum.as_object().unwrap()));
+			}
+
+			println!("Output conversion: {:?}", time.elapsed());
+
+			Ok(Value::list(output))
 		}
 		Err(e) => {
 			let message = format!("{}", e);

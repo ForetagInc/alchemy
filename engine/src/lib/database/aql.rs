@@ -98,9 +98,10 @@ impl AQLQuery {
 
 	fn to_update_aql(&self) -> String {
 		format!(
-			"FOR {var} IN @@collection {} UPDATE {var}.`_key` WITH {} IN @@collection RETURN {}",
+			"FOR {var} IN @@collection {} UPDATE {var}.`_key` WITH {} IN @@collection {} RETURN {}",
 			self.describe_filter(),
 			self.updates,
+			self.describe_limit(),
 			self.describe_parameters(),
 			var = self.get_variable_name(),
 		)
