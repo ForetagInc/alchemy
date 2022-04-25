@@ -15,3 +15,19 @@ impl<S: ScalarValue> IntoFieldError<S> for NotFoundError {
 		FieldError::new(format!("{} not found", self.model), Value::Null)
 	}
 }
+
+pub struct DatabaseError {
+	message: String,
+}
+
+impl DatabaseError {
+	pub fn new(message: String) -> Self {
+		Self { message }
+	}
+}
+
+impl<S: ScalarValue> IntoFieldError<S> for DatabaseError {
+	fn into_field_error(self) -> FieldError<S> {
+		FieldError::new(self.message, Value::Null)
+	}
+}
