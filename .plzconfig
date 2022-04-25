@@ -1,2 +1,8 @@
+[Build]
+path = /Users/chiru/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+
 [Parse]
 PreloadSubincludes = @pleasings//rust
+
+[buildconfig]
+rust-toolchain = //engine:toolchain

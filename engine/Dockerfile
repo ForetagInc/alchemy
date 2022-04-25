@@ -4,18 +4,24 @@ FROM rust:latest as build
 RUN user=root cargo new --bin alchemy
 WORKDIR /alchemy
 
+# Copy manifests
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 
-RUN cargo build --release && src/*.rs
+# Switch to nightly version for build
+RUN rustup default nightly
 
-COPY ./src ./src
+# Cache dependencies for build
+RUN cargo +nightly build --release 
+RUN rm src/*.rs
+
+COPY . .
 
 RUN rm ./target/release/deps/alchemy*
-RUN cargo build --release
+RUN cargo +nightly build --release
 
 # Run binary
-FROM rust:1.58.0-slim-buster
+FROM alpine:latest
 
 COPY --from=build /alchemy/target/release/alchemy ./
 CMD ["./alchemy"]
