@@ -1,16 +1,13 @@
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{Arguments, Registry, ScalarValue};
-use rust_arango::{AqlQuery, ClientError};
-use serde_json::Value as JsonValue;
 
 use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use crate::api::schema::fields::{Entity, EntityData};
 use crate::api::schema::operations::{
-	get_multiple_entries, FutureType, Operation, OperationData, OperationRegistry,
+	execute_query, FutureType, Operation, OperationData, OperationRegistry, QueryReturnType,
 };
 use crate::lib::database::aql::AQLQuery;
-use crate::lib::database::DATABASE;
 
 pub struct GetAll;
 
@@ -23,7 +20,7 @@ where
 		arguments: &'b Arguments<S>,
 		mut query: AQLQuery,
 	) -> FutureType<'b, S> {
-		let mut time = std::time::Instant::now();
+		let time = std::time::Instant::now();
 
 		let entity = &data.entity;
 		let collection = &entity.collection_name;
@@ -33,32 +30,13 @@ where
 
 		println!("Query AQL Filter generation: {:?}", time.elapsed());
 
-		Box::pin(async move {
-			time = std::time::Instant::now();
-
-			let query_str = query.to_aql();
-
-			println!("Query AQL string generation: {:?}", time.elapsed());
-
-			println!("{}", &query_str);
-
-			let entries_query = AqlQuery::builder()
-				.query(&query_str)
-				.bind_var("@collection".to_string(), collection.clone());
-
-			time = std::time::Instant::now();
-
-			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
-				.get()
-				.await
-				.database
-				.aql_query(entries_query.build())
-				.await;
-
-			println!("SQL: {:?}", time.elapsed());
-
-			get_multiple_entries(entries)
-		})
+		execute_query(
+			query,
+			entity,
+			collection,
+			QueryReturnType::Multiple,
+			arguments,
+		)
 	}
 
 	fn get_operation_name(data: &OperationData<S>) -> String {

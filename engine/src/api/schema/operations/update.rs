@@ -1,15 +1,13 @@
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{Arguments, Registry, ScalarValue, ID};
-use rust_arango::{AqlQuery, ClientError};
-use serde_json::Value as JsonValue;
 
 use crate::api::schema::fields::{Entity, EntityData, EntitySet, EntitySetData};
 use crate::api::schema::operations::{
-	get_by_id_filter, get_single_entry, FutureType, Operation, OperationData, OperationRegistry,
+	execute_query, get_by_id_filter, FutureType, Operation, OperationData, OperationRegistry,
+	QueryReturnType,
 };
 use crate::lib::database::aql::{AQLQuery, AQLQueryMethod};
-use crate::lib::database::DATABASE;
 
 pub struct Update;
 
@@ -22,8 +20,6 @@ where
 		arguments: &'b Arguments<S>,
 		mut query: AQLQuery,
 	) -> FutureType<'b, S> {
-		let time = std::time::Instant::now();
-
 		let entity = &data.entity;
 		let collection = &entity.collection_name;
 
@@ -31,33 +27,13 @@ where
 		query.filter = Some(get_by_id_filter());
 		query.updates = arguments.get::<EntitySet>("_set").unwrap().data;
 
-		println!("Query AQL Filter generation: {:?}", time.elapsed());
-
-		Box::pin(async move {
-			let query_str = query.to_aql();
-
-			println!("{}", &query_str);
-
-			let entries_query = AqlQuery::builder()
-				.query(&query_str)
-				.bind_var("@collection".to_string(), collection.clone())
-				// TODO: Make ID come from int and string not only string
-				.bind_var(
-					query.get_argument_key("id"),
-					arguments.get::<String>("id").unwrap(),
-				);
-
-			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
-				.get()
-				.await
-				.database
-				.aql_query(entries_query.build())
-				.await;
-
-			println!("SQL: {:?}", time.elapsed());
-
-			get_single_entry(entries, entity.name.clone())
-		})
+		execute_query(
+			query,
+			entity,
+			collection,
+			QueryReturnType::Single,
+			arguments,
+		)
 	}
 
 	fn get_operation_name(data: &OperationData<S>) -> String {

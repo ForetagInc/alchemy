@@ -1,15 +1,15 @@
-use crate::api::schema::errors::{DatabaseError, NotFoundError};
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{
 	Arguments, BoxFuture, ExecutionResult, IntoFieldError, Object, Registry, ScalarValue, Value,
 };
-use rust_arango::ClientError;
+use rust_arango::{AqlQuery, ClientError};
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use crate::api::schema::errors::{DatabaseError, NotFoundError};
 use crate::api::schema::operations::get::Get;
 use crate::api::schema::operations::get_all::GetAll;
 use crate::api::schema::operations::remove::Remove;
@@ -20,12 +20,13 @@ use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
 	AQLFilterOperation, AQLNode, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
 };
+use crate::lib::database::DATABASE;
 
 pub mod get;
 pub mod get_all;
+pub mod remove;
 pub mod update;
 pub mod update_all;
-pub mod remove;
 
 type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
 
@@ -78,12 +79,8 @@ where
 			.map(|o| (o.closure)(&o.data, arguments, query))
 	}
 
-	pub fn get_operations(
-		&self,
-		kind: SchemaKind,
-	) -> HashMap<&String, &OperationEntry<S>> {
-		self
-			.operations
+	pub fn get_operations(&self, kind: SchemaKind) -> HashMap<&String, &OperationEntry<S>> {
+		self.operations
 			.iter()
 			.filter(|(_, entry)| entry.kind == kind)
 			.collect()
@@ -117,11 +114,7 @@ where
 		];
 	}
 
-	fn register<T: 'static>(
-		&mut self,
-		data: Arc<OperationData<S>>,
-		kind: SchemaKind,
-	) -> String
+	fn register<T: 'static>(&mut self, data: Arc<OperationData<S>>, kind: SchemaKind) -> String
 	where
 		T: Operation<S>,
 	{
@@ -319,4 +312,54 @@ where
 			Err(DatabaseError::new(message).into_field_error())
 		}
 	};
+}
+
+pub enum QueryReturnType {
+	Single,
+	Multiple,
+}
+
+fn execute_query<'a, S>(
+	query: AQLQuery,
+	entity: &'a DbEntity,
+	collection: &'a str,
+	return_type: QueryReturnType,
+	arguments: &'a Arguments<S>,
+) -> FutureType<'a, S>
+where
+	S: ScalarValue + Send + Sync,
+{
+	let time = std::time::Instant::now();
+
+	Box::pin(async move {
+		let query_str = query.to_aql();
+
+		println!("{}", &query_str);
+
+		let mut entries_query = AqlQuery::builder()
+			.query(&query_str)
+			.bind_var("@collection".to_string(), collection.clone());
+
+		if matches!(return_type, QueryReturnType::Single) {
+			// TODO: Make ID come from int and string not only string
+			entries_query = entries_query.bind_var(
+				query.get_argument_key("id"),
+				arguments.get::<String>("id").unwrap(),
+			);
+		}
+
+		let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
+			.get()
+			.await
+			.database
+			.aql_query(entries_query.build())
+			.await;
+
+		println!("SQL: {:?}", time.elapsed());
+
+		match return_type {
+			QueryReturnType::Single => get_single_entry(entries, entity.name.clone()),
+			QueryReturnType::Multiple => get_multiple_entries(entries),
+		}
+	})
 }

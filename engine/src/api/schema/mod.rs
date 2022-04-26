@@ -7,8 +7,8 @@ use crate::api::schema::fields::SchemaFieldFactory;
 use crate::api::schema::operations::OperationRegistry;
 use juniper::meta::MetaType;
 use juniper::{
-	Arguments, BoxFuture, EmptySubscription, ExecutionResult, Executor, GraphQLType,
-	GraphQLValue, GraphQLValueAsync, Registry, RootNode, ScalarValue,
+	Arguments, BoxFuture, EmptySubscription, ExecutionResult, Executor, GraphQLType, GraphQLValue,
+	GraphQLValueAsync, Registry, RootNode, ScalarValue,
 };
 use std::sync::Arc;
 
@@ -40,10 +40,10 @@ pub fn schema(map: DbMap) -> Schema {
 	let query_info = SchemaData {
 		operation_registry: Arc::new(operation_registry),
 		relationships,
-		kind: SchemaKind::Query
+		kind: SchemaKind::Query,
 	};
 
-	let  mutation_info = SchemaData {
+	let mutation_info = SchemaData {
 		kind: SchemaKind::Mutation,
 		..query_info.clone()
 	};
@@ -61,7 +61,7 @@ pub fn schema(map: DbMap) -> Schema {
 #[derive(PartialEq, Clone)]
 pub enum SchemaKind {
 	Query,
-	Mutation
+	Mutation,
 }
 
 #[derive(Clone)]
@@ -83,7 +83,7 @@ where
 	fn name(info: &Self::TypeInfo) -> Option<&str> {
 		Some(match info.kind {
 			SchemaKind::Query => "Query",
-			SchemaKind::Mutation => "Mutation"
+			SchemaKind::Mutation => "Mutation",
 		})
 	}
 

@@ -2,15 +2,12 @@ use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFi
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{Arguments, Registry, ScalarValue};
-use rust_arango::{AqlQuery, ClientError};
-use serde_json::Value as JsonValue;
 
 use crate::api::schema::fields::{Entity, EntityData, EntitySet, EntitySetData};
 use crate::api::schema::operations::{
-	get_multiple_entries, FutureType, Operation, OperationData, OperationRegistry,
+	execute_query, FutureType, Operation, OperationData, OperationRegistry, QueryReturnType,
 };
 use crate::lib::database::aql::{AQLQuery, AQLQueryMethod};
-use crate::lib::database::DATABASE;
 
 pub struct UpdateAll;
 
@@ -35,26 +32,13 @@ where
 
 		println!("Query AQL Filter generation: {:?}", time.elapsed());
 
-		Box::pin(async move {
-			let query_str = query.to_aql();
-
-			println!("{}", &query_str);
-
-			let entries_query = AqlQuery::builder()
-				.query(&query_str)
-				.bind_var("@collection".to_string(), collection.clone());
-
-			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
-				.get()
-				.await
-				.database
-				.aql_query(entries_query.build())
-				.await;
-
-			println!("SQL: {:?}", time.elapsed());
-
-			get_multiple_entries(entries)
-		})
+		execute_query(
+			query,
+			entity,
+			collection,
+			QueryReturnType::Multiple,
+			arguments,
+		)
 	}
 
 	fn get_operation_name(data: &OperationData<S>) -> String {
