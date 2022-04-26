@@ -13,6 +13,7 @@ use crate::api::schema::errors::{DatabaseError, NotFoundError};
 use crate::api::schema::operations::get::Get;
 use crate::api::schema::operations::get_all::GetAll;
 use crate::api::schema::operations::remove::Remove;
+use crate::api::schema::operations::remove_all::RemoveAll;
 use crate::api::schema::operations::update::Update;
 use crate::api::schema::operations::update_all::UpdateAll;
 use crate::api::schema::SchemaKind;
@@ -27,6 +28,7 @@ pub mod get_all;
 pub mod remove;
 pub mod update;
 pub mod update_all;
+pub mod remove_all;
 
 type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
 
@@ -111,6 +113,7 @@ where
 			self.register::<Update>(data.clone(), SchemaKind::Mutation),
 			self.register::<UpdateAll>(data.clone(), SchemaKind::Mutation),
 			self.register::<Remove>(data.clone(), SchemaKind::Mutation),
+			self.register::<RemoveAll>(data.clone(), SchemaKind::Mutation),
 		];
 	}
 
