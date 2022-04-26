@@ -15,6 +15,7 @@ use crate::api::schema::operations::get_all::GetAll;
 use crate::api::schema::operations::remove::Remove;
 use crate::api::schema::operations::update::Update;
 use crate::api::schema::operations::update_all::UpdateAll;
+use crate::api::schema::SchemaKind;
 use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
 	AQLFilterOperation, AQLNode, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
@@ -52,13 +53,7 @@ where
 	) -> Field<'a, S>,
 
 	pub data: Arc<OperationData<S>>,
-	pub operation_type: OperationType,
-}
-
-#[derive(PartialEq)]
-pub enum OperationType {
-	Query,
-	Mutation,
+	pub kind: SchemaKind,
 }
 
 impl<S> OperationRegistry<S>
@@ -85,12 +80,12 @@ where
 
 	pub fn get_operations(
 		&self,
-		operation_type: OperationType,
+		kind: SchemaKind,
 	) -> HashMap<&String, &OperationEntry<S>> {
 		self
 			.operations
 			.iter()
-			.filter(|(_, entry)| entry.operation_type == operation_type)
+			.filter(|(_, entry)| entry.kind == kind)
 			.collect()
 	}
 
@@ -114,18 +109,18 @@ where
 			.insert(entity.name.clone(), data.clone());
 
 		vec![
-			self.register::<Get>(data.clone(), OperationType::Query),
-			self.register::<GetAll>(data.clone(), OperationType::Query),
-			self.register::<Update>(data.clone(), OperationType::Mutation),
-			self.register::<UpdateAll>(data.clone(), OperationType::Mutation),
-			self.register::<Remove>(data.clone(), OperationType::Mutation),
+			self.register::<Get>(data.clone(), SchemaKind::Query),
+			self.register::<GetAll>(data.clone(), SchemaKind::Query),
+			self.register::<Update>(data.clone(), SchemaKind::Mutation),
+			self.register::<UpdateAll>(data.clone(), SchemaKind::Mutation),
+			self.register::<Remove>(data.clone(), SchemaKind::Mutation),
 		];
 	}
 
 	fn register<T: 'static>(
 		&mut self,
 		data: Arc<OperationData<S>>,
-		operation_type: OperationType,
+		kind: SchemaKind,
 	) -> String
 	where
 		T: Operation<S>,
@@ -139,7 +134,7 @@ where
 				arguments_closure: T::get_arguments,
 				field_closure: T::build_field,
 				data,
-				operation_type,
+				kind,
 			},
 		);
 
