@@ -23,6 +23,8 @@ use crate::lib::database::aql::{
 };
 use crate::lib::database::DATABASE;
 
+pub mod utils;
+
 pub mod get;
 pub mod get_all;
 pub mod remove;

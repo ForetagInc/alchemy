@@ -1,73 +1,46 @@
 use convert_case::Casing;
-use juniper::meta::{Argument, Field};
-use juniper::{Arguments, Registry, ScalarValue, ID};
+use juniper::ID;
 
-use crate::api::schema::fields::{Entity, EntityData};
+use crate::api::schema::fields::Entity;
 use crate::api::schema::operations::{
-	execute_query, get_by_id_filter, FutureType, Operation, OperationData, OperationRegistry,
-	QueryReturnType,
+	execute_query, get_by_id_filter, QueryReturnType,
 };
-use crate::lib::database::aql::AQLQuery;
 
-pub struct Get;
+use crate::api::schema::operations::utils::*;
 
-impl<S> Operation<S> for Get
-where
-	S: ScalarValue + Send + Sync,
-{
-	fn call<'b>(
-		data: &'b OperationData<S>,
-		arguments: &'b Arguments<S>,
-		mut query: AQLQuery,
-	) -> FutureType<'b, S> {
-		let entity = &data.entity;
-		let collection = &entity.collection_name;
+define_operation!(
+	Get {
+		on_call(data, args, query) -> {
+			let entity = &data.entity;
+			let collection = &entity.collection_name;
 
-		query.filter = Some(get_by_id_filter());
-		query.limit = Some(1);
+			query.filter = Some(get_by_id_filter());
+			query.limit = Some(1);
 
-		execute_query(
-			query,
-			entity,
-			collection,
-			QueryReturnType::Single,
-			arguments,
-		)
-	}
-
-	fn get_operation_name(data: &OperationData<S>) -> String {
-		format!(
-			"get{}",
-			pluralizer::pluralize(
-				data.entity
-					.name
-					.to_case(convert_case::Case::Pascal)
-					.as_str(),
-				1,
-				false,
+			execute_query(
+				query,
+				entity,
+				collection,
+				QueryReturnType::Single,
+				args,
 			)
-		)
+		},
+		name(data) -> {
+			format!(
+				"get{}",
+				pluralizer::pluralize(
+					data.entity
+						.name
+						.to_case(convert_case::Case::Pascal)
+						.as_str(),
+					1,
+					false,
+				)
+			)
+		},
+		arguments(_data) {
+			ID id &()
+		},
+		return_type -> Option<Entity>
 	}
-
-	fn get_arguments<'r, 'd>(
-		registry: &mut Registry<'r, S>,
-		_: &'d OperationData<S>,
-	) -> Vec<Argument<'r, S>> {
-		vec![registry.arg::<ID>("id", &())]
-	}
-
-	fn build_field<'r>(
-		registry: &mut Registry<'r, S>,
-		name: &str,
-		data: &OperationData<S>,
-		operation_registry: &OperationRegistry<S>,
-	) -> Field<'r, S> {
-		registry.field::<Option<Entity>>(
-			name,
-			&EntityData {
-				data,
-				registry: operation_registry,
-			},
-		)
-	}
-}
+);
