@@ -11,7 +11,11 @@ Alchemy is an open source GraphQL API for your ArangoDB database with (planned) 
 - Full text search (via ArangoSearch)
 
 ## Community
-Discord: [Invite](https://discord.gg/ZfKjt5Gt7G)
+
+Get involved with Alchemy and our community on our matrix server:
+
+[![Matrix Server](https://matrix.org/blog/wp-content/uploads/2015/01/logo1.png)](https://matrix.to/#/#alchemy:matrix.org)
+
 
 
 
