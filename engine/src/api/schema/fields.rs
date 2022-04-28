@@ -393,6 +393,18 @@ where
 	pub data: &'a OperationData<S>,
 }
 
+impl<'a, S> EntitySetData<'a, S>
+where
+	S: ScalarValue,
+{
+	pub fn new(data: &'a OperationData<S>) -> Self {
+		Self {
+			name: format!("{}Set", data.entity.name.as_str()),
+			data,
+		}
+	}
+}
+
 impl<'a, S> GraphQLType<S> for EntitySet<'a>
 where
 	S: ScalarValue + Send + Sync,

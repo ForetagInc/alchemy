@@ -5,10 +5,10 @@ macro_rules! define_operation {
 			name($name_data:ident) -> $name_body:block,
 			arguments($args_data:ident) {
 				$(
-					$arg_type:ident$(<$arg_generics:ident>)? $arg_name:ident $arg_info:expr
+					$arg_name:ident $arg_type:ty => $arg_info:expr
 				)*
 			},
-			return_type -> $ret_type:ident$(<$ret_generics:ident>)?
+			return_type -> $ret_type:ty
 		}
 	) => {
 		pub struct $name;
@@ -43,7 +43,7 @@ macro_rules! define_operation {
 
 				vec![
 					$(
-						registry.arg::<$arg_type $(<$arg_generics>)?>(stringify!($arg_name), $arg_info),
+						registry.arg::<$arg_type>(stringify!($arg_name), $arg_info),
 					)*
 				]
 			}
@@ -54,7 +54,7 @@ macro_rules! define_operation {
 				data: &crate::api::schema::operations::OperationData<S>,
 				operation_registry: &crate::api::schema::operations::OperationRegistry<S>,
 			) -> ::juniper::meta::Field<'r, S> {
-				registry.field::<$ret_type $(<$ret_generics>)?>(
+				registry.field::<$ret_type>(
 					name,
 					&crate::api::schema::fields::EntityData {
 						data,
