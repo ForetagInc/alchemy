@@ -10,7 +10,7 @@ Alchemy is an open source, batteries included data engine, it provides a GraphQL
 	- REST
 	- gRPC
 - Realtime updates (via GraphQL Subscriptions)
-- First class support Files via S3 and B2
+- First class support for Files via S3 and B2
 - GIS capabilities for Maps & Navigation
 	- Supports GeoJSON and GeoSpatial Queries
 - Full text search (via ArangoSearch)
@@ -37,6 +37,7 @@ and more planned / in the works.
 Get involved with Alchemy and our community on our matrix server:
 
 [![Matrix Server](https://matrix.org/blog/wp-content/uploads/2015/01/logo1.png)](https://matrix.to/#/#alchemy:matrix.org)
+
 
 
 
