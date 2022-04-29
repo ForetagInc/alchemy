@@ -1,3 +1,4 @@
+#![feature(trait_alias)]
 #![feature(derive_default_enum)]
 #![feature(const_try)]
 

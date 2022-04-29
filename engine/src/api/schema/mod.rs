@@ -16,6 +16,8 @@ use crate::lib::database::api::*;
 
 pub type Schema = RootNode<'static, SchemaType, SchemaType, EmptySubscription>;
 
+pub trait AsyncScalarValue = ScalarValue + Send + Sync;
+
 pub fn schema(map: DbMap) -> Schema {
 	let mut operation_registry = OperationRegistry::new();
 
@@ -67,7 +69,7 @@ pub enum SchemaKind {
 #[derive(Clone)]
 pub struct SchemaData<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	kind: SchemaKind,
 	operation_registry: Arc<OperationRegistry<S>>,
@@ -78,7 +80,7 @@ pub struct SchemaType;
 
 impl<S> GraphQLType<S> for SchemaType
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	fn name(info: &Self::TypeInfo) -> Option<&str> {
 		Some(match info.kind {
@@ -110,7 +112,7 @@ where
 
 impl<S> GraphQLValue<S> for SchemaType
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	type Context = ();
 	type TypeInfo = SchemaData<S>;
@@ -122,7 +124,7 @@ where
 
 impl<S> GraphQLValueAsync<S> for SchemaType
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	fn resolve_field_async<'b>(
 		&'b self,

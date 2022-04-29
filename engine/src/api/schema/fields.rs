@@ -8,7 +8,7 @@ use juniper::{
 use std::marker::PhantomData;
 
 use crate::api::schema::operations::{OperationData, OperationEntry, OperationRegistry};
-use crate::api::schema::SchemaData;
+use crate::api::schema::{AsyncScalarValue, SchemaData};
 use crate::lib::database::api::{DbProperty, DbRelationship, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryRelationship};
 
@@ -22,7 +22,7 @@ impl SchemaFieldFactory {
 		operation_registry: &OperationRegistry<S>,
 	) -> Field<'a, S>
 	where
-		S: ScalarValue + Send + Sync,
+		S: AsyncScalarValue,
 	{
 		let mut field =
 			(operation.field_closure)(registry, name, &operation.data, operation_registry);
@@ -39,7 +39,7 @@ impl SchemaFieldFactory {
 		arguments: &'a Arguments<S>,
 	) -> SchemaFieldResolver<'a, S>
 	where
-		S: ScalarValue + Send + Sync,
+		S: AsyncScalarValue,
 	{
 		SchemaFieldResolver {
 			field_name,
@@ -50,7 +50,7 @@ impl SchemaFieldFactory {
 
 pub struct EntityData<'a, S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	pub registry: &'a OperationRegistry<S>,
 	pub data: &'a OperationData<S>,
@@ -158,7 +158,7 @@ fn build_field_from_relationship<'r, S>(
 	info: &EntityData<S>,
 ) -> Field<'r, S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	let field = if relationship.relationship_type.returns_array() {
 		registry.field::<Vec<Entity>>(relationship.name.as_str(), info)
@@ -175,7 +175,7 @@ where
 
 impl<'a, S> GraphQLType<S> for Entity<'a>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	fn name(info: &Self::TypeInfo) -> Option<&str> {
 		Some(info.data.entity.name.as_str())
@@ -215,7 +215,7 @@ where
 
 impl<'a, S> GraphQLValue<S> for Entity<'a>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	type Context = ();
 	type TypeInfo = EntityData<'a, S>;
@@ -237,7 +237,7 @@ where
 
 impl<'a, S> GraphQLValue<S> for SchemaFieldResolver<'a, S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	type Context = ();
 	type TypeInfo = SchemaData<S>;
@@ -249,7 +249,7 @@ where
 
 impl<'a, S> GraphQLValueAsync<S> for SchemaFieldResolver<'a, S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	fn resolve_async<'b>(
 		&'b self,
@@ -275,7 +275,7 @@ async fn resolve_graphql_field<'a, S>(
 	executor: &'a Executor<'a, 'a, <SchemaFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
 ) -> ExecutionResult<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	if let Some(entry) = info.operation_registry.get_operation(field_name) {
 		let query =
@@ -295,7 +295,7 @@ fn get_query_from_graphql<'a, S>(
 	executor: &'a Executor<'a, 'a, <SchemaFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
 ) -> AQLQuery
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	let mut query = AQLQuery::new(query_id.unwrap_or(1));
 
@@ -407,7 +407,7 @@ where
 
 impl<'a, S> GraphQLType<S> for EntitySet<'a>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	fn name(info: &Self::TypeInfo) -> Option<&str> {
 		Some(info.name.as_str())
@@ -433,7 +433,7 @@ where
 
 impl<'a, S> GraphQLValue<S> for EntitySet<'a>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	type Context = ();
 	type TypeInfo = EntitySetData<'a, S>;
@@ -445,7 +445,7 @@ where
 
 impl<'a, S> FromInputValue<S> for EntitySet<'a>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	fn from_input_value(data: &InputValue<S>) -> Option<Self> {
 		Some(Self {

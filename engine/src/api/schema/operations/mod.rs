@@ -16,7 +16,7 @@ use crate::api::schema::operations::remove::Remove;
 use crate::api::schema::operations::remove_all::RemoveAll;
 use crate::api::schema::operations::update::Update;
 use crate::api::schema::operations::update_all::UpdateAll;
-use crate::api::schema::SchemaKind;
+use crate::api::schema::{AsyncScalarValue, SchemaKind};
 use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
 	AQLFilterOperation, AQLNode, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
@@ -28,15 +28,15 @@ pub mod utils;
 pub mod get;
 pub mod get_all;
 pub mod remove;
+pub mod remove_all;
 pub mod update;
 pub mod update_all;
-pub mod remove_all;
 
 type FutureType<'b, S> = BoxFuture<'b, ExecutionResult<S>>;
 
 pub struct OperationRegistry<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	operation_data: HashMap<String, Arc<OperationData<S>>>,
 	operations: HashMap<String, OperationEntry<S>>,
@@ -44,7 +44,7 @@ where
 
 pub struct OperationEntry<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	pub closure:
 		for<'a> fn(&'a OperationData<S>, &'a juniper::Arguments<S>, AQLQuery) -> FutureType<'a, S>,
@@ -63,7 +63,7 @@ where
 
 impl<S> OperationRegistry<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	pub fn new() -> OperationRegistry<S> {
 		OperationRegistry {
@@ -152,7 +152,7 @@ where
 
 pub trait Operation<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 	Self: Send + Sync,
 {
 	fn call<'b>(
@@ -194,7 +194,7 @@ where
 
 fn convert_number<S>(n: &JsonNumber) -> Value<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	return if n.is_i64() {
 		let v = n.as_i64().unwrap();
@@ -229,13 +229,13 @@ where
 
 fn convert_json_to_juniper_value<S>(data: &JsonMap<String, JsonValue>) -> Value<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	let mut object = Object::<S>::with_capacity(data.len());
 
 	fn convert<S>(val: &JsonValue) -> Value<S>
 	where
-		S: ScalarValue + Send + Sync,
+		S: AsyncScalarValue,
 	{
 		match val {
 			JsonValue::Null => Value::null(),
@@ -267,7 +267,7 @@ fn get_single_entry<S>(
 	entity_name: String,
 ) -> ExecutionResult<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	let not_found_error = NotFoundError::new(entity_name).into_field_error();
 
@@ -295,7 +295,7 @@ where
 
 fn get_multiple_entries<S>(entries: Result<Vec<JsonValue>, ClientError>) -> ExecutionResult<S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	return match entries {
 		Ok(data) => {
@@ -332,7 +332,7 @@ fn execute_query<'a, S>(
 	arguments: &'a Arguments<S>,
 ) -> FutureType<'a, S>
 where
-	S: ScalarValue + Send + Sync,
+	S: AsyncScalarValue,
 {
 	let time = std::time::Instant::now();
 
@@ -346,7 +346,6 @@ where
 			.bind_var("@collection".to_string(), collection.clone());
 
 		if matches!(return_type, QueryReturnType::Single) {
-			// TODO: Make ID come from int and string not only string
 			entries_query = entries_query.bind_var(
 				query.get_argument_key("id"),
 				arguments.get::<String>("id").unwrap(),

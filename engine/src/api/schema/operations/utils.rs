@@ -15,7 +15,7 @@ macro_rules! define_operation {
 
 		impl<S> crate::api::schema::operations::Operation<S> for $name
 		where
-			S: ::juniper::ScalarValue + Send + Sync,
+			S: crate::api::schema::AsyncScalarValue,
 		{
 			fn call<'b>(
 				data: &'b crate::api::schema::operations::OperationData<S>,
