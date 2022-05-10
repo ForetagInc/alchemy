@@ -2,3 +2,6 @@
 plz-out
 .plzconfig.local
 .idea
+
+# MacOS
+.DS_Store

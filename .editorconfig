@@ -2,6 +2,10 @@
 indent_size = 4
 indent_style = tab
 
+[*.yml]
+indent_size = 4
+indent_style = space
+
 [BUILD]
 indent_size = 4
 indent_style = space

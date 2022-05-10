@@ -1,0 +1,14 @@
+name: "CI: Engine"
+on:
+    push:
+        branches: [master, dev]
+    pull_request:
+        branches: [master, dev]
+
+jobs:
+    rust_format:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            - name: Run rustfmt
+              run: cargo fmt --check
