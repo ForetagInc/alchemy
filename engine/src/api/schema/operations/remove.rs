@@ -2,7 +2,7 @@ use convert_case::Casing;
 use juniper::ID;
 
 use crate::api::schema::fields::Entity;
-use crate::api::schema::operations::{execute_query, get_by_id_filter, QueryReturnType};
+use crate::api::schema::operations::{execute_query, get_by_key_filter, QueryReturnType};
 use crate::lib::database::aql::AQLQueryMethod;
 
 crate::api::schema::operations::utils::define_operation!(
@@ -12,7 +12,7 @@ crate::api::schema::operations::utils::define_operation!(
 			let collection = &entity.collection_name;
 
 			query.method = AQLQueryMethod::Remove;
-			query.filter = Some(get_by_id_filter());
+			query.filter = Some(get_by_key_filter());
 
 			execute_query(
 				query,
@@ -36,7 +36,7 @@ crate::api::schema::operations::utils::define_operation!(
 			)
 		},
 		arguments(_data) {
-			id ID => &()
+			_key ID => &()
 		},
 		return_type -> Entity
 	}

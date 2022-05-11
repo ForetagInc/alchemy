@@ -420,6 +420,10 @@ where
 		let mut args = Vec::new();
 
 		for property in &info.data.entity.properties {
+			if property.name.eq("_key") {
+				continue;
+			}
+
 			let arg = build_argument_from_property(registry, &property, &property.scalar_type);
 
 			args.push(arg);

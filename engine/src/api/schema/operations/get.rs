@@ -2,7 +2,7 @@ use convert_case::Casing;
 use juniper::ID;
 
 use crate::api::schema::fields::Entity;
-use crate::api::schema::operations::{execute_query, get_by_id_filter, QueryReturnType};
+use crate::api::schema::operations::{execute_query, get_by_key_filter, QueryReturnType};
 
 crate::api::schema::operations::utils::define_operation!(
 	Get {
@@ -10,7 +10,7 @@ crate::api::schema::operations::utils::define_operation!(
 			let entity = &data.entity;
 			let collection = &entity.collection_name;
 
-			query.filter = Some(get_by_id_filter());
+			query.filter = Some(get_by_key_filter());
 			query.limit = Some(1);
 
 			execute_query(
@@ -35,7 +35,7 @@ crate::api::schema::operations::utils::define_operation!(
 			)
 		},
 		arguments(_data) {
-			id ID => &()
+			_key ID => &()
 		},
 		return_type -> Option<Entity>
 	}

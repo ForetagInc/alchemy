@@ -254,11 +254,11 @@ where
 	Value::Object(object)
 }
 
-fn get_by_id_filter() -> Box<dyn AQLNode> {
+fn get_by_key_filter() -> Box<dyn AQLNode> {
 	Box::new(AQLFilterOperation {
 		left_node: Box::new(AQLQueryParameter("_key".to_string())),
 		operation: AQLOperation::Equal,
-		right_node: Box::new(AQLQueryBind("id".to_string())),
+		right_node: Box::new(AQLQueryBind("_key".to_string())),
 	})
 }
 
@@ -347,8 +347,8 @@ where
 
 		if matches!(return_type, QueryReturnType::Single) {
 			entries_query = entries_query.bind_var(
-				query.get_argument_key("id"),
-				arguments.get::<String>("id").unwrap(),
+				query.get_argument_key("_key"),
+				arguments.get::<String>("_key").unwrap(),
 			);
 		}
 

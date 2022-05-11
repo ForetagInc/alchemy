@@ -215,6 +215,14 @@ pub async fn generate_sdl() -> DbMap {
 
 		let mut props: Vec<DbProperty> = Vec::new();
 
+		// Adding document key property to all entities
+		props.push(DbProperty {
+			name: "_key".to_string(),
+			scalar_type: DbScalarType::Int,
+			required: true,
+			..Default::default()
+		});
+
 		for prop in entry_properties.as_object().unwrap().iter() {
 			let prop_name = prop.0.clone();
 
