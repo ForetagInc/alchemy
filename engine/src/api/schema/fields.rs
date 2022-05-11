@@ -447,13 +447,66 @@ where
 	}
 }
 
+fn input_value_to_string<S>(data: &InputValue<S>) -> String
+where
+	S: ScalarValue
+{
+	match *data {
+		InputValue::Null => "null".to_string(),
+		InputValue::Scalar(ref s) => {
+			if let Some(s) = s.as_str() {
+				format!("{:?}", s)
+			} else {
+				format!("{}", s)
+			}
+		}
+		InputValue::Enum(ref v) => format!("{:?}", v),
+		InputValue::Variable(ref v) => format!("${}", v),
+		InputValue::List(ref v) => {
+			let mut string = String::new();
+
+			string.push_str("[");
+
+			for (i, spanning) in v.iter().enumerate() {
+				string.push_str(format!("{}", input_value_to_string(&spanning.item)).as_str());
+
+				if i < v.len() - 1 {
+					string.push_str(", ");
+				}
+			}
+
+			string.push_str("]");
+
+			string
+		}
+		InputValue::Object(ref o) => {
+			let mut string = String::new();
+
+			string.push_str("{");
+
+			for (i, &(ref k, ref v)) in o.iter().enumerate() {
+				string.push_str(format!("{}: ", k.item).as_str());
+				string.push_str(format!("{}", input_value_to_string(&v.item)).as_str());
+
+				if i < o.len() - 1 {
+					string.push_str(", ");
+				}
+			}
+
+			string.push_str("}");
+
+			string
+		}
+	}
+}
+
 impl<'a, S> FromInputValue<S> for EntitySet<'a>
 where
 	S: AsyncScalarValue,
 {
 	fn from_input_value(data: &InputValue<S>) -> Option<Self> {
 		Some(Self {
-			data: data.to_string(),
+			data: input_value_to_string(data),
 
 			_marker: Default::default(),
 		})
