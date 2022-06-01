@@ -22,6 +22,7 @@ crate::api::schema::operations::utils::define_operation!(
 
 			execute_query(
 				query,
+				None,
 				entity,
 				collection,
 				QueryReturnType::Multiple,

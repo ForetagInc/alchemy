@@ -13,6 +13,7 @@ pub enum AQLQueryMethod {
 	Get,
 	Update,
 	Remove,
+	Create,
 }
 
 pub struct AQLQuery {
@@ -21,6 +22,7 @@ pub struct AQLQuery {
 	pub filter: Option<Box<dyn AQLNode>>,
 	pub relations: HashMap<String, AQLQuery>,
 	pub updates: String,
+	pub creates: String,
 	pub limit: Option<i32>,
 	pub relationship: Option<AQLQueryRelationship>,
 
@@ -35,6 +37,7 @@ impl AQLQuery {
 			filter: None,
 			relations: HashMap::new(),
 			updates: "null".to_string(),
+			creates: "null".to_string(),
 			limit: None,
 			relationship: None,
 			id,
@@ -46,15 +49,12 @@ impl AQLQuery {
 			AQLQueryMethod::Get => self.to_get_aql(),
 			AQLQueryMethod::Update => self.to_update_aql(),
 			AQLQueryMethod::Remove => self.to_remove_aql(),
+			AQLQueryMethod::Create => self.to_create_aql(),
 		}
 	}
 
 	pub fn describe_parameters(&self) -> String {
-		let variable = match self.method {
-			AQLQueryMethod::Update => "NEW".to_string(),
-			AQLQueryMethod::Remove => "OLD".to_string(),
-			_ => self.get_variable_name(),
-		};
+		let variable = self.get_variable_name();
 
 		format!(
 			"{{{}}}",
@@ -120,6 +120,13 @@ impl AQLQuery {
 		)
 	}
 
+	fn to_create_aql(&self) -> String {
+		format!(
+			"INSERT {} INTO @@collection RETURN {{ _key: NEW._key }}",
+			self.creates,
+		)
+	}
+
 	fn describe_limit(&self) -> String {
 		if let Some(limit) = self.limit {
 			format!("LIMIT {}", limit)
@@ -167,6 +174,7 @@ pub struct AQLFilter {
 
 pub enum AQLOperation {
 	Equal,
+	In,
 	GreaterThan,
 	GreaterOrEqualThan,
 	Like,
@@ -200,6 +208,7 @@ impl ToString for AQLOperation {
 	fn to_string(&self) -> String {
 		return match self {
 			AQLOperation::Equal => "==",
+			AQLOperation::In => "IN",
 			AQLOperation::GreaterThan => ">",
 			AQLOperation::GreaterOrEqualThan => ">=",
 			AQLOperation::Like => "LIKE",

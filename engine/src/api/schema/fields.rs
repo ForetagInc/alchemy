@@ -124,31 +124,55 @@ fn build_argument_from_property<'r, S>(
 	registry: &mut Registry<'r, S>,
 	property: &DbProperty,
 	scalar_type: &DbScalarType,
+	required: bool,
 ) -> Argument<'r, S>
 where
 	S: ScalarValue,
 {
+	fn build_argument<'r, T, S>(
+		registry: &mut Registry<'r, S>,
+		property: &DbProperty,
+		required: bool,
+		info: &T::TypeInfo,
+	) -> Argument<'r, S>
+	where
+		S: ScalarValue + 'r,
+		T: GraphQLType<S, Context = ()> + FromInputValue<S>,
+	{
+		if required {
+			registry.arg::<T>(property.name.as_str(), info)
+		} else {
+			registry.arg::<Option<T>>(property.name.as_str(), info)
+		}
+	}
+
 	match scalar_type {
 		DbScalarType::Array(t) => {
-			let mut argument = build_argument_from_property(registry, property, &t);
+			let mut argument = build_argument_from_property(registry, property, &t, required);
 
-			argument.arg_type = juniper::Type::List(Box::new(argument.arg_type));
+			if required {
+				argument.arg_type = juniper::Type::NonNullList(Box::new(argument.arg_type));
+			} else {
+				argument.arg_type = juniper::Type::List(Box::new(argument.arg_type));
+			}
 
 			argument
 		}
 
-		DbScalarType::Enum(values) => registry.arg::<Option<GraphQLEnum>>(
-			property.name.as_str(),
+		DbScalarType::Enum(values) => build_argument::<GraphQLEnum, S>(
+			registry,
+			property,
+			required,
 			&DbEnumInfo {
 				name: property.associated_type.clone().unwrap(),
 				properties: values.clone(),
 			},
 		),
-		DbScalarType::String => registry.arg::<Option<String>>(property.name.as_str(), &()),
-		DbScalarType::Object => registry.arg::<Option<String>>(property.name.as_str(), &()),
-		DbScalarType::Float => registry.arg::<Option<f64>>(property.name.as_str(), &()),
-		DbScalarType::Int => registry.arg::<Option<i32>>(property.name.as_str(), &()),
-		DbScalarType::Boolean => registry.arg::<Option<bool>>(property.name.as_str(), &()),
+		DbScalarType::String => build_argument::<String, S>(registry, property, required, &()),
+		DbScalarType::Object => build_argument::<String, S>(registry, property, required, &()),
+		DbScalarType::Float => build_argument::<f64, S>(registry, property, required, &()),
+		DbScalarType::Int => build_argument::<i32, S>(registry, property, required, &()),
+		DbScalarType::Boolean => build_argument::<bool, S>(registry, property, required, &()),
 	}
 }
 
@@ -424,7 +448,8 @@ where
 				continue;
 			}
 
-			let arg = build_argument_from_property(registry, &property, &property.scalar_type);
+			let arg =
+				build_argument_from_property(registry, &property, &property.scalar_type, false);
 
 			args.push(arg);
 		}
@@ -447,9 +472,82 @@ where
 	}
 }
 
+pub struct EntityInsert<'a> {
+	pub data: String,
+
+	_marker: PhantomData<&'a ()>,
+}
+
+pub struct EntityInsertData<'a, S>
+where
+	S: ScalarValue,
+{
+	pub name: String,
+	pub data: &'a OperationData<S>,
+}
+
+impl<'a, S> EntityInsertData<'a, S>
+where
+	S: ScalarValue,
+{
+	pub fn new(data: &'a OperationData<S>) -> Self {
+		Self {
+			name: format!("{}Insert", data.entity.name.as_str()),
+			data,
+		}
+	}
+}
+
+impl<'a, S> GraphQLType<S> for EntityInsert<'a>
+where
+	S: AsyncScalarValue,
+{
+	fn name(info: &Self::TypeInfo) -> Option<&str> {
+		Some(info.name.as_str())
+	}
+
+	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
+	where
+		S: 'r,
+	{
+		let mut args = Vec::new();
+
+		for property in &info.data.entity.properties {
+			if property.name.eq("_key") {
+				continue;
+			}
+
+			let arg = build_argument_from_property(
+				registry,
+				&property,
+				&property.scalar_type,
+				property.required,
+			);
+
+			args.push(arg);
+		}
+
+		registry
+			.build_input_object_type::<EntityInsert>(info, &args)
+			.into_meta()
+	}
+}
+
+impl<'a, S> GraphQLValue<S> for EntityInsert<'a>
+where
+	S: AsyncScalarValue,
+{
+	type Context = ();
+	type TypeInfo = EntityInsertData<'a, S>;
+
+	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+		<Self as GraphQLType<S>>::name(info)
+	}
+}
+
 fn input_value_to_string<S>(data: &InputValue<S>) -> String
 where
-	S: ScalarValue
+	S: ScalarValue,
 {
 	match *data {
 		InputValue::Null => "null".to_string(),
@@ -501,6 +599,19 @@ where
 }
 
 impl<'a, S> FromInputValue<S> for EntitySet<'a>
+where
+	S: AsyncScalarValue,
+{
+	fn from_input_value(data: &InputValue<S>) -> Option<Self> {
+		Some(Self {
+			data: input_value_to_string(data),
+
+			_marker: Default::default(),
+		})
+	}
+}
+
+impl<'a, S> FromInputValue<S> for EntityInsert<'a>
 where
 	S: AsyncScalarValue,
 {

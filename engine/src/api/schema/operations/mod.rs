@@ -10,6 +10,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::api::schema::errors::{DatabaseError, NotFoundError};
+use crate::api::schema::operations::create::Create;
 use crate::api::schema::operations::get::Get;
 use crate::api::schema::operations::get_all::GetAll;
 use crate::api::schema::operations::remove::Remove;
@@ -25,6 +26,7 @@ use crate::lib::database::DATABASE;
 
 pub mod utils;
 
+pub mod create;
 pub mod get;
 pub mod get_all;
 pub mod remove;
@@ -116,6 +118,7 @@ where
 			self.register::<UpdateAll>(data.clone(), SchemaKind::Mutation),
 			self.register::<Remove>(data.clone(), SchemaKind::Mutation),
 			self.register::<RemoveAll>(data.clone(), SchemaKind::Mutation),
+			self.register::<Create>(data.clone(), SchemaKind::Mutation),
 		];
 	}
 
@@ -325,7 +328,8 @@ pub enum QueryReturnType {
 }
 
 fn execute_query<'a, S>(
-	query: AQLQuery,
+	mut query: AQLQuery,
+	parent_query: Option<AQLQuery>,
 	entity: &'a DbEntity,
 	collection: &'a str,
 	return_type: QueryReturnType,
@@ -336,7 +340,53 @@ where
 {
 	let time = std::time::Instant::now();
 
+	// TODO: Refactor this
 	Box::pin(async move {
+		let keys = if let Some(parent) = parent_query {
+			let parent_str = parent.to_aql();
+
+			println!("{}", &parent_str);
+
+			let mut entries_query = AqlQuery::builder()
+				.query(&parent_str)
+				.bind_var("@collection".to_string(), collection.clone());
+
+			if matches!(return_type, QueryReturnType::Single) {
+				if let Some(key_var) = arguments.get::<String>("_key") {
+					entries_query = entries_query.bind_var(query.get_argument_key("_key"), key_var);
+				}
+			}
+
+			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
+				.get()
+				.await
+				.database
+				.aql_query(entries_query.build())
+				.await;
+
+			println!("SQL: {:?}", time.elapsed());
+
+			let mut keys = Vec::new();
+
+			if let Ok(data) = entries {
+				for datum in data {
+					keys.push(datum["_key"].as_str().unwrap().to_string())
+				}
+			}
+
+			Some(keys)
+		} else {
+			None
+		};
+
+		if keys.is_some() {
+			query.filter = Some(Box::new(AQLFilterOperation {
+				left_node: Box::new(AQLQueryParameter("_key".to_string())),
+				operation: AQLOperation::In,
+				right_node: Box::new(AQLQueryBind("keys".to_string())),
+			}));
+		}
+
 		let query_str = query.to_aql();
 
 		println!("{}", &query_str);
@@ -345,11 +395,14 @@ where
 			.query(&query_str)
 			.bind_var("@collection".to_string(), collection.clone());
 
+		if keys.is_some() {
+			entries_query = entries_query.bind_var(query.get_argument_key("keys"), keys.unwrap())
+		}
+
 		if matches!(return_type, QueryReturnType::Single) {
-			entries_query = entries_query.bind_var(
-				query.get_argument_key("_key"),
-				arguments.get::<String>("_key").unwrap(),
-			);
+			if let Some(key_var) = arguments.get::<String>("_key") {
+				entries_query = entries_query.bind_var(query.get_argument_key("_key"), key_var);
+			}
 		}
 
 		let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
