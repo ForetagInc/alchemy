@@ -1,4 +1,7 @@
-use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
+use crate::api::input::filter::{
+	get_aql_filter_from_args, EntityFilter, EntityFilterData, EntityIndicesFilter,
+	EntityIndicesFilterData,
+};
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use juniper::meta::{Argument, Field, MetaType};
 use juniper::{
@@ -8,7 +11,7 @@ use juniper::{
 use std::marker::PhantomData;
 
 use crate::api::schema::operations::{OperationData, OperationEntry, OperationRegistry};
-use crate::api::schema::{AsyncScalarValue, SchemaData};
+use crate::api::schema::{input_value_to_string, AsyncScalarValue, SchemaData};
 use crate::lib::database::api::{DbProperty, DbRelationship, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryRelationship};
 
@@ -27,7 +30,7 @@ impl SchemaFieldFactory {
 		let mut field =
 			(operation.field_closure)(registry, name, &operation.data, operation_registry);
 
-		for arg in (operation.arguments_closure)(registry, &operation.data) {
+		for arg in (operation.arguments_closure)(registry, &operation.data, operation_registry) {
 			field = field.argument(arg);
 		}
 
@@ -480,20 +483,22 @@ pub struct EntityInsert<'a> {
 
 pub struct EntityInsertData<'a, S>
 where
-	S: ScalarValue,
+	S: AsyncScalarValue,
 {
 	pub name: String,
 	pub data: &'a OperationData<S>,
+	pub registry: &'a OperationRegistry<S>,
 }
 
 impl<'a, S> EntityInsertData<'a, S>
 where
-	S: ScalarValue,
+	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>) -> Self {
+	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}Insert", data.entity.name.as_str()),
 			data,
+			registry,
 		}
 	}
 }
@@ -527,6 +532,19 @@ where
 			args.push(arg);
 		}
 
+		for relationship in &*info.data.relationships {
+			let rel_data = &info
+				.registry
+				.get_operation_data(&relationship.to.name)
+				.expect("Relationship entity operation data not found");
+
+			let rel_info = &EntityRelationshipInsertData::new(rel_data, &info.registry);
+
+			let arg = build_insert_arg_from_relationship(registry, relationship, rel_info);
+
+			args.push(arg);
+		}
+
 		registry
 			.build_input_object_type::<EntityInsert>(info, &args)
 			.into_meta()
@@ -545,56 +563,18 @@ where
 	}
 }
 
-fn input_value_to_string<S>(data: &InputValue<S>) -> String
+fn build_insert_arg_from_relationship<'r, S>(
+	registry: &mut Registry<'r, S>,
+	relationship: &DbRelationship,
+	info: &EntityRelationshipInsertData<S>,
+) -> Argument<'r, S>
 where
-	S: ScalarValue,
+	S: AsyncScalarValue,
 {
-	match *data {
-		InputValue::Null => "null".to_string(),
-		InputValue::Scalar(ref s) => {
-			if let Some(s) = s.as_str() {
-				format!("{:?}", s)
-			} else {
-				format!("{}", s)
-			}
-		}
-		InputValue::Enum(ref v) => format!("{:?}", v),
-		InputValue::Variable(ref v) => format!("${}", v),
-		InputValue::List(ref v) => {
-			let mut string = String::new();
-
-			string.push_str("[");
-
-			for (i, spanning) in v.iter().enumerate() {
-				string.push_str(format!("{}", input_value_to_string(&spanning.item)).as_str());
-
-				if i < v.len() - 1 {
-					string.push_str(", ");
-				}
-			}
-
-			string.push_str("]");
-
-			string
-		}
-		InputValue::Object(ref o) => {
-			let mut string = String::new();
-
-			string.push_str("{");
-
-			for (i, &(ref k, ref v)) in o.iter().enumerate() {
-				string.push_str(format!("{}: ", k.item).as_str());
-				string.push_str(format!("{}", input_value_to_string(&v.item)).as_str());
-
-				if i < o.len() - 1 {
-					string.push_str(", ");
-				}
-			}
-
-			string.push_str("}");
-
-			string
-		}
+	if relationship.relationship_type.returns_array() {
+		registry.arg::<Option<Vec<EntityRelationshipInsert>>>(relationship.name.as_str(), info)
+	} else {
+		registry.arg::<Option<EntityRelationshipInsert>>(relationship.name.as_str(), info)
 	}
 }
 
@@ -612,6 +592,85 @@ where
 }
 
 impl<'a, S> FromInputValue<S> for EntityInsert<'a>
+where
+	S: AsyncScalarValue,
+{
+	fn from_input_value(data: &InputValue<S>) -> Option<Self> {
+		Some(Self {
+			data: input_value_to_string(data),
+
+			_marker: Default::default(),
+		})
+	}
+}
+
+pub struct EntityRelationshipInsert<'a> {
+	pub data: String,
+
+	_marker: PhantomData<&'a ()>,
+}
+
+pub struct EntityRelationshipInsertData<'a, S>
+where
+	S: AsyncScalarValue,
+{
+	pub name: String,
+	pub data: &'a OperationData<S>,
+	pub registry: &'a OperationRegistry<S>,
+}
+
+impl<'a, S> EntityRelationshipInsertData<'a, S>
+where
+	S: AsyncScalarValue,
+{
+	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+		Self {
+			name: format!("{}RelationshipInsert", data.entity.name.as_str()),
+			data,
+			registry,
+		}
+	}
+}
+
+impl<'a, S> GraphQLType<S> for EntityRelationshipInsert<'a>
+where
+	S: AsyncScalarValue,
+{
+	fn name(info: &Self::TypeInfo) -> Option<&str> {
+		Some(info.name.as_str())
+	}
+
+	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
+	where
+		S: 'r,
+	{
+		let insert_data = &EntityInsertData::new(info.data, info.registry);
+
+		let new = registry.arg::<Option<EntityInsert>>("addNew", insert_data);
+		let existing = registry.arg::<Option<EntityIndicesFilter<S>>>(
+			"addExisting",
+			&EntityIndicesFilterData::new(info.data),
+		);
+
+		registry
+			.build_input_object_type::<EntityRelationshipInsert>(info, &vec![new, existing])
+			.into_meta()
+	}
+}
+
+impl<'a, S> GraphQLValue<S> for EntityRelationshipInsert<'a>
+where
+	S: AsyncScalarValue,
+{
+	type Context = ();
+	type TypeInfo = EntityRelationshipInsertData<'a, S>;
+
+	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+		<Self as GraphQLType<S>>::name(info)
+	}
+}
+
+impl<'a, S> FromInputValue<S> for EntityRelationshipInsert<'a>
 where
 	S: AsyncScalarValue,
 {

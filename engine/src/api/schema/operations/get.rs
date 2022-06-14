@@ -1,8 +1,10 @@
 use convert_case::Casing;
-use juniper::ID;
 
+use crate::api::input::filter::{EntityIndicesFilter, EntityIndicesFilterData};
 use crate::api::schema::fields::Entity;
-use crate::api::schema::operations::{execute_query, get_by_key_filter, QueryReturnType};
+use crate::api::schema::operations::{
+	execute_query, get_filter_by_indices_attributes, QueryReturnType,
+};
 
 crate::api::schema::operations::utils::define_operation!(
 	Get {
@@ -10,7 +12,9 @@ crate::api::schema::operations::utils::define_operation!(
 			let entity = &data.entity;
 			let collection = &entity.collection_name;
 
-			query.filter = Some(get_by_key_filter());
+			let indices_filter = args.get::<EntityIndicesFilter<S>>("where").unwrap().indices_arguments;
+
+			query.filter = Some(get_filter_by_indices_attributes(&indices_filter));
 			query.limit = Some(1);
 
 			execute_query(
@@ -20,6 +24,7 @@ crate::api::schema::operations::utils::define_operation!(
 				collection,
 				QueryReturnType::Single,
 				args,
+				indices_filter,
 			)
 		},
 		name(data) -> {
@@ -35,8 +40,8 @@ crate::api::schema::operations::utils::define_operation!(
 				)
 			)
 		},
-		arguments(_data) {
-			_key ID => &()
+		arguments(data, _registry) {
+			where EntityIndicesFilter<S> => &EntityIndicesFilterData::<S>::new(data)
 		},
 		return_type -> Option<Entity>
 	}

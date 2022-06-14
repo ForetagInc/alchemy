@@ -1,7 +1,7 @@
 use convert_case::Casing;
 use juniper::meta::{Argument, MetaType};
 use juniper::{
-	Arguments, FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue,
+	Arguments, FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue, ID,
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -295,4 +295,101 @@ where
 		DbScalarType::String => StringFilter::get_aql_filter_node(name, value),
 		_ => todo!(),
 	}
+}
+
+pub struct EntityIndicesFilterData<'a, S>
+where
+	S: ScalarValue,
+{
+	pub name: String,
+	pub operation_data: &'a OperationData<S>,
+}
+
+impl<'a, S> EntityIndicesFilterData<'a, S>
+where
+	S: ScalarValue,
+{
+	pub fn new(data: &'a OperationData<S>) -> Self {
+		Self {
+			name: format!(
+				"{}IndexFilter",
+				data.entity.name.to_case(convert_case::Case::Pascal)
+			),
+			operation_data: data,
+		}
+	}
+}
+
+#[derive(Debug)]
+pub struct EntityIndicesFilter<'a, S>
+where
+	S: ScalarValue + 'a,
+{
+	pub indices_arguments: HashMap<String, InputValue<S>>,
+
+	_marker: PhantomData<&'a S>,
+}
+
+impl<'a, S> GraphQLValue<S> for EntityIndicesFilter<'a, S>
+where
+	S: ScalarValue,
+{
+	type Context = ();
+	type TypeInfo = EntityIndicesFilterData<'a, S>;
+
+	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+		<Self as GraphQLType<S>>::name(info)
+	}
+}
+
+impl<'a, S> GraphQLType<S> for EntityIndicesFilter<'a, S>
+where
+	S: ScalarValue,
+{
+	fn name(info: &Self::TypeInfo) -> Option<&str> {
+		Some(info.name.as_str())
+	}
+
+	fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r, S>) -> MetaType<'r, S>
+	where
+		S: 'r,
+	{
+		// TODO: add real indices from database
+		let key = registry.arg::<ID>("_key", &());
+
+		registry
+			.build_input_object_type::<Self>(info, &vec![key])
+			.into_meta()
+	}
+}
+
+impl<'a, S> FromInputValue<S> for EntityIndicesFilter<'a, S>
+where
+	S: ScalarValue,
+{
+	fn from_input_value(value: &InputValue<S>) -> Option<Self> {
+		Some(Self {
+			indices_arguments: parse_indices_attributes(value),
+
+			_marker: Default::default(),
+		})
+	}
+}
+
+fn parse_indices_attributes<S>(data: &InputValue<S>) -> HashMap<String, InputValue<S>>
+where
+	S: ScalarValue,
+{
+	let mut attributes = HashMap::new();
+
+	match data {
+		InputValue::Object(items) => {
+			for (key, value) in items {
+				attributes.insert(key.item.clone(), value.item.clone());
+			}
+		}
+		_ => unreachable!(),
+	}
+
+	attributes
 }

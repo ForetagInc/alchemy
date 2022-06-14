@@ -1,7 +1,8 @@
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{
-	Arguments, BoxFuture, ExecutionResult, IntoFieldError, Object, Registry, ScalarValue, Value,
+	Arguments, BoxFuture, ExecutionResult, InputValue, IntoFieldError, Object, Registry,
+	ScalarValue, Value,
 };
 use rust_arango::{AqlQuery, ClientError};
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
@@ -20,7 +21,8 @@ use crate::api::schema::operations::update_all::UpdateAll;
 use crate::api::schema::{AsyncScalarValue, SchemaKind};
 use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
-	AQLFilterOperation, AQLNode, AQLOperation, AQLQuery, AQLQueryBind, AQLQueryParameter,
+	AQLFilterOperation, AQLLogicalFilter, AQLLogicalOperator, AQLNode, AQLOperation, AQLQuery,
+	AQLQueryBind, AQLQueryParameter,
 };
 use crate::lib::database::DATABASE;
 
@@ -48,10 +50,12 @@ pub struct OperationEntry<S>
 where
 	S: AsyncScalarValue,
 {
-	pub closure:
-		for<'a> fn(&'a OperationData<S>, &'a juniper::Arguments<S>, AQLQuery) -> FutureType<'a, S>,
-	pub arguments_closure:
-		for<'a> fn(&mut Registry<'a, S>, data: &OperationData<S>) -> Vec<Argument<'a, S>>,
+	pub closure: for<'a> fn(&'a OperationData<S>, &'a Arguments<S>, AQLQuery) -> FutureType<'a, S>,
+	pub arguments_closure: for<'a> fn(
+		&mut Registry<'a, S>,
+		data: &OperationData<S>,
+		&OperationRegistry<S>,
+	) -> Vec<Argument<'a, S>>,
 	pub field_closure: for<'a> fn(
 		&mut Registry<'a, S>,
 		name: &str,
@@ -169,6 +173,7 @@ where
 	fn get_arguments<'r, 'd>(
 		registry: &mut Registry<'r, S>,
 		data: &'d OperationData<S>,
+		operation_registry: &OperationRegistry<S>,
 	) -> Vec<Argument<'r, S>>;
 
 	fn build_field<'r>(
@@ -257,11 +262,25 @@ where
 	Value::Object(object)
 }
 
-fn get_by_key_filter() -> Box<dyn AQLNode> {
-	Box::new(AQLFilterOperation {
-		left_node: Box::new(AQLQueryParameter("_key".to_string())),
-		operation: AQLOperation::Equal,
-		right_node: Box::new(AQLQueryBind("_key".to_string())),
+fn get_filter_by_indices_attributes<S>(
+	attributes: &HashMap<String, InputValue<S>>,
+) -> Box<dyn AQLNode>
+where
+	S: AsyncScalarValue,
+{
+	let mut nodes: Vec<Box<dyn AQLNode>> = Vec::new();
+
+	for (key, _) in attributes {
+		nodes.push(Box::new(AQLFilterOperation {
+			left_node: Box::new(AQLQueryParameter(key.clone())),
+			operation: AQLOperation::Equal,
+			right_node: Box::new(AQLQueryBind(key.clone())),
+		}));
+	}
+
+	Box::new(AQLLogicalFilter {
+		operation: AQLLogicalOperator::AND,
+		nodes,
 	})
 }
 
@@ -334,6 +353,7 @@ fn execute_query<'a, S>(
 	collection: &'a str,
 	return_type: QueryReturnType,
 	arguments: &'a Arguments<S>,
+	query_arguments: HashMap<String, InputValue<S>>,
 ) -> FutureType<'a, S>
 where
 	S: AsyncScalarValue,
@@ -399,9 +419,27 @@ where
 			entries_query = entries_query.bind_var(query.get_argument_key("keys"), keys.unwrap())
 		}
 
-		if matches!(return_type, QueryReturnType::Single) {
-			if let Some(key_var) = arguments.get::<String>("_key") {
-				entries_query = entries_query.bind_var(query.get_argument_key("_key"), key_var);
+		for (key, value) in query_arguments {
+			match value {
+				InputValue::Scalar(s) => {
+					if let Some(int) = s.as_int() {
+						entries_query =
+							entries_query.bind_var(query.get_argument_key(key.as_str()), int);
+					} else if let Some(float) = s.as_float() {
+						entries_query =
+							entries_query.bind_var(query.get_argument_key(key.as_str()), float);
+					} else if let Some(str) = s.as_string() {
+						entries_query =
+							entries_query.bind_var(query.get_argument_key(key.as_str()), str);
+					}
+				}
+				_ => {
+					println!(
+						"WARN: Using non-scalar for query arguments ({}, {})",
+						key,
+						value.to_string()
+					)
+				}
 			}
 		}
 

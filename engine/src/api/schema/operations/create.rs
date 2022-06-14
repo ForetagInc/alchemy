@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use convert_case::Casing;
 
 use crate::api::schema::fields::{Entity, EntityInsert, EntityInsertData};
@@ -22,6 +24,7 @@ crate::api::schema::operations::utils::define_operation!(
 				collection,
 				QueryReturnType::Single,
 				arguments,
+				HashMap::new()
 			)
 		},
 		name(data) -> {
@@ -37,8 +40,8 @@ crate::api::schema::operations::utils::define_operation!(
 				)
 			)
 		},
-		arguments(data) {
-			_set EntityInsert => &EntityInsertData::new(data)
+		arguments(data, registry) {
+			_set EntityInsert => &EntityInsertData::new(data, registry)
 		},
 		return_type -> Entity
 	}

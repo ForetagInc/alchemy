@@ -3,7 +3,7 @@ macro_rules! define_operation {
 		$name:ident {
 			on_call($data:ident , $arguments:ident , $query:ident) -> $call_body:block,
 			name($name_data:ident) -> $name_body:block,
-			arguments($args_data:ident) {
+			arguments($args_data:ident, $args_registry:ident) {
 				$(
 					$arg_name:ident $arg_type:ty => $arg_info:expr
 				)*
@@ -38,8 +38,10 @@ macro_rules! define_operation {
 			fn get_arguments<'r, 'd>(
 				registry: &mut ::juniper::Registry<'r, S>,
 				data: &'d crate::api::schema::operations::OperationData<S>,
+				operation_registry: &crate::api::schema::operations::OperationRegistry<S>,
 			) -> Vec<::juniper::meta::Argument<'r, S>> {
 				let $args_data = data;
+				let $args_registry = operation_registry;
 
 				vec![
 					$(

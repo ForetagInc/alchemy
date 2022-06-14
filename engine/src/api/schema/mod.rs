@@ -8,7 +8,7 @@ use crate::api::schema::operations::OperationRegistry;
 use juniper::meta::MetaType;
 use juniper::{
 	Arguments, BoxFuture, EmptySubscription, ExecutionResult, Executor, GraphQLType, GraphQLValue,
-	GraphQLValueAsync, Registry, RootNode, ScalarValue,
+	GraphQLValueAsync, InputValue, Registry, RootNode, ScalarValue,
 };
 use std::sync::Arc;
 
@@ -142,4 +142,11 @@ where
 				.await
 		})
 	}
+}
+
+pub fn input_value_to_string<S>(data: &InputValue<S>) -> String
+where
+	S: ScalarValue,
+{
+	serde_json::to_string(data).unwrap()
 }

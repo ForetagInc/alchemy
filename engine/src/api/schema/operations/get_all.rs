@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use convert_case::Casing;
 
 use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
@@ -24,6 +26,7 @@ crate::api::schema::operations::utils::define_operation!(
 				collection,
 				QueryReturnType::Multiple,
 				args,
+				HashMap::new()
 			)
 		},
 		name(data) -> {
@@ -39,7 +42,7 @@ crate::api::schema::operations::utils::define_operation!(
 				)
 			)
 		},
-		arguments(data) {
+		arguments(data, _registry) {
 			limit Option<i32> => &()
 			where Option<EntityFilter<S>> => &EntityFilterData::new(data)
 		},
