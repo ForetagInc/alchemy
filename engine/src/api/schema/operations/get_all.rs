@@ -31,7 +31,7 @@ crate::api::schema::operations::utils::define_operation!(
 		},
 		name(data) -> {
 			format!(
-				"getAll{}",
+				"get{}",
 				pluralizer::pluralize(
 					data.entity
 						.name

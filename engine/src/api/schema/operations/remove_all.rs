@@ -33,7 +33,7 @@ crate::api::schema::operations::utils::define_operation!(
 		},
 		name(data) -> {
 			format!(
-				"removeAll{}",
+				"remove{}",
 				pluralizer::pluralize(
 					data.entity
 						.name
