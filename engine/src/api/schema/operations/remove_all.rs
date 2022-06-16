@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use convert_case::Casing;
 
-use crate::api::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use crate::api::schema::fields::Entity;
+use crate::api::schema::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use crate::api::schema::operations::{execute_query, QueryReturnType};
 use crate::lib::database::aql::AQLQueryMethod;
 

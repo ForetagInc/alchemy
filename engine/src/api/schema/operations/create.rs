@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use convert_case::Casing;
 
-use crate::api::schema::fields::{Entity, EntityInsert, EntityInsertData};
+use crate::api::schema::fields::Entity;
+use crate::api::schema::input::insert::{EntityInsert, EntityInsertData};
 use crate::api::schema::operations::{execute_query, QueryReturnType};
 use crate::lib::database::aql::{AQLQuery, AQLQueryMethod};
 

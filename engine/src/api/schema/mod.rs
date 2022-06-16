@@ -1,14 +1,16 @@
 pub mod enums;
 pub mod errors;
 pub mod fields;
+pub mod input;
 pub mod operations;
 
+use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use crate::api::schema::fields::SchemaFieldFactory;
 use crate::api::schema::operations::OperationRegistry;
-use juniper::meta::MetaType;
+use juniper::meta::{Argument, MetaType};
 use juniper::{
-	Arguments, BoxFuture, EmptySubscription, ExecutionResult, Executor, GraphQLType, GraphQLValue,
-	GraphQLValueAsync, InputValue, Registry, RootNode, ScalarValue,
+	Arguments, BoxFuture, EmptySubscription, ExecutionResult, Executor, FromInputValue,
+	GraphQLType, GraphQLValue, GraphQLValueAsync, InputValue, Registry, RootNode, ScalarValue,
 };
 use std::sync::Arc;
 
@@ -149,4 +151,60 @@ where
 	S: ScalarValue,
 {
 	serde_json::to_string(data).unwrap()
+}
+
+pub fn build_argument_from_property<'r, S>(
+	registry: &mut Registry<'r, S>,
+	property: &DbProperty,
+	scalar_type: &DbScalarType,
+	required: bool,
+) -> Argument<'r, S>
+where
+	S: ScalarValue,
+{
+	fn build_argument<'r, T, S>(
+		registry: &mut Registry<'r, S>,
+		property: &DbProperty,
+		required: bool,
+		info: &T::TypeInfo,
+	) -> Argument<'r, S>
+	where
+		S: ScalarValue + 'r,
+		T: GraphQLType<S, Context = ()> + FromInputValue<S>,
+	{
+		if required {
+			registry.arg::<T>(property.name.as_str(), info)
+		} else {
+			registry.arg::<Option<T>>(property.name.as_str(), info)
+		}
+	}
+
+	match scalar_type {
+		DbScalarType::Array(t) => {
+			let mut argument = build_argument_from_property(registry, property, &t, required);
+
+			if required {
+				argument.arg_type = juniper::Type::NonNullList(Box::new(argument.arg_type));
+			} else {
+				argument.arg_type = juniper::Type::List(Box::new(argument.arg_type));
+			}
+
+			argument
+		}
+
+		DbScalarType::Enum(values) => build_argument::<GraphQLEnum, S>(
+			registry,
+			property,
+			required,
+			&DbEnumInfo {
+				name: property.associated_type.clone().unwrap(),
+				properties: values.clone(),
+			},
+		),
+		DbScalarType::String => build_argument::<String, S>(registry, property, required, &()),
+		DbScalarType::Object => build_argument::<String, S>(registry, property, required, &()),
+		DbScalarType::Float => build_argument::<f64, S>(registry, property, required, &()),
+		DbScalarType::Int => build_argument::<i32, S>(registry, property, required, &()),
+		DbScalarType::Boolean => build_argument::<bool, S>(registry, property, required, &()),
+	}
 }

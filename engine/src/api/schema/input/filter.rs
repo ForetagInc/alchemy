@@ -6,7 +6,7 @@ use juniper::{
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use crate::api::input::string_filter::{StringFilter, StringFilterData};
+use crate::api::schema::input::string_filter::{StringFilter, StringFilterData};
 use crate::api::schema::operations::OperationData;
 use crate::lib::database::api::DbScalarType;
 use crate::lib::database::aql::{AQLFilter, AQLLogicalFilter, AQLLogicalOperator, AQLNode};

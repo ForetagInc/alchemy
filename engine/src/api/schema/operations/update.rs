@@ -1,7 +1,8 @@
 use convert_case::Casing;
 
-use crate::api::input::filter::{EntityIndicesFilter, EntityIndicesFilterData};
-use crate::api::schema::fields::{Entity, EntitySet, EntitySetData};
+use crate::api::schema::fields::Entity;
+use crate::api::schema::input::filter::{EntityIndicesFilter, EntityIndicesFilterData};
+use crate::api::schema::input::set::{EntitySet, EntitySetData};
 use crate::api::schema::operations::{
 	execute_query, get_filter_by_indices_attributes, QueryReturnType,
 };

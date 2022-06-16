@@ -1,4 +1,4 @@
-use crate::api::input::filter::{EntityFilterData, FilterOperation};
+use crate::api::schema::input::filter::{EntityFilterData, FilterOperation};
 use juniper::meta::{Argument, MetaType};
 use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
 use std::marker::PhantomData;
