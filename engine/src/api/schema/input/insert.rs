@@ -24,7 +24,7 @@ where
 }
 
 pub struct EntityInsert<'a> {
-	pub data: String,
+	pub attributes: String,
 
 	_marker: PhantomData<&'a ()>,
 }
@@ -95,8 +95,21 @@ where
 	S: AsyncScalarValue,
 {
 	fn from_input_value(data: &InputValue<S>) -> Option<Self> {
+		let mut attributes = String::new();
+
+		match *data {
+			InputValue::Object(ref o) => {
+				for (k, object) in o {
+					if k.item == "attributes" {
+						attributes = input_value_to_string(&object.item)
+					}
+				}
+			}
+			_ => {}
+		}
+
 		Some(Self {
-			data: input_value_to_string(data),
+			attributes,
 
 			_marker: Default::default(),
 		})
