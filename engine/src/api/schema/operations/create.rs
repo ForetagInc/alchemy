@@ -16,7 +16,9 @@ crate::api::schema::operations::utils::define_operation!(
 			let mut insert_query = AQLQuery::new(0);
 
 			insert_query.method = AQLQueryMethod::Create;
-			insert_query.creates = arguments.get::<EntityInsert>("object").unwrap().attributes;
+			insert_query.creates = arguments.get::<EntityInsert<S>>("object").unwrap().attributes;
+
+			println!("{:?}", arguments.get::<EntityInsert<S>>("object").unwrap().relationships);
 
 			execute_query(
 				query,
@@ -42,7 +44,7 @@ crate::api::schema::operations::utils::define_operation!(
 			)
 		},
 		arguments(data, registry) {
-			object EntityInsert => &EntityInsertData::new(data, registry)
+			object EntityInsert<S> => &EntityInsertData::new(data, registry)
 		},
 		return_type -> Entity
 	}

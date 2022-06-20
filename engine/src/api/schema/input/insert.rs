@@ -1,9 +1,12 @@
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use juniper::meta::{Argument, MetaType};
 use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry};
 
-use crate::api::schema::input::filter::{EntityIndicesFilter, EntityIndicesFilterData};
+use crate::api::schema::input::filter::{
+	parse_indices_attributes, EntityIndicesFilter, EntityIndicesFilterData,
+};
 use crate::api::schema::operations::{OperationData, OperationRegistry};
 use crate::api::schema::{build_argument_from_property, input_value_to_string, AsyncScalarValue};
 use crate::lib::database::api::DbRelationship;
@@ -23,8 +26,21 @@ where
 	}
 }
 
-pub struct EntityInsert<'a> {
+#[derive(Debug)]
+pub enum EntityInsertRelationship<S>
+where
+	S: AsyncScalarValue,
+{
+	Existing(String, HashMap<String, InputValue<S>>),
+	New(String, InputValue<S>),
+}
+
+pub struct EntityInsert<'a, S>
+where
+	S: AsyncScalarValue,
+{
 	pub attributes: String,
+	pub relationships: Vec<EntityInsertRelationship<S>>,
 
 	_marker: PhantomData<&'a ()>,
 }
@@ -51,7 +67,7 @@ where
 	}
 }
 
-impl<'a, S> GraphQLType<S> for EntityInsert<'a>
+impl<'a, S> GraphQLType<S> for EntityInsert<'a, S>
 where
 	S: AsyncScalarValue,
 {
@@ -73,12 +89,12 @@ where
 		);
 
 		registry
-			.build_input_object_type::<EntityInsert>(info, &vec![attributes, relationships])
+			.build_input_object_type::<EntityInsert<S>>(info, &vec![attributes, relationships])
 			.into_meta()
 	}
 }
 
-impl<'a, S> GraphQLValue<S> for EntityInsert<'a>
+impl<'a, S> GraphQLValue<S> for EntityInsert<'a, S>
 where
 	S: AsyncScalarValue,
 {
@@ -90,26 +106,43 @@ where
 	}
 }
 
-impl<'a, S> FromInputValue<S> for EntityInsert<'a>
+impl<'a, S> FromInputValue<S> for EntityInsert<'a, S>
 where
 	S: AsyncScalarValue,
 {
 	fn from_input_value(data: &InputValue<S>) -> Option<Self> {
 		let mut attributes = String::new();
+		let mut relationships = Vec::new();
 
-		match *data {
-			InputValue::Object(ref o) => {
-				for (k, object) in o {
-					if k.item == "attributes" {
-						attributes = input_value_to_string(&object.item)
+		for (k, object) in data.to_object_value().unwrap() {
+			if k == "attributes" {
+				attributes = input_value_to_string(object)
+			} else if k == "relationships" {
+				for (rel_key, rel_object) in object.to_object_value().unwrap() {
+					for r in rel_object.to_list_value().unwrap() {
+						for (rel_type, rel_data) in r.to_object_value().unwrap() {
+							match rel_type {
+								"addExisting" => {
+									relationships.push(EntityInsertRelationship::Existing(
+										rel_key.to_string(),
+										parse_indices_attributes(rel_data),
+									))
+								}
+								"addNew" => relationships.push(EntityInsertRelationship::New(
+									rel_key.to_string(),
+									rel_data.clone(),
+								)),
+								&_ => {}
+							}
+						}
 					}
 				}
 			}
-			_ => {}
 		}
 
 		Some(Self {
 			attributes,
+			relationships,
 
 			_marker: Default::default(),
 		})

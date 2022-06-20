@@ -376,7 +376,7 @@ where
 	}
 }
 
-fn parse_indices_attributes<S>(data: &InputValue<S>) -> HashMap<String, InputValue<S>>
+pub fn parse_indices_attributes<S>(data: &InputValue<S>) -> HashMap<String, InputValue<S>>
 where
 	S: ScalarValue,
 {
