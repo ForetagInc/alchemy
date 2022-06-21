@@ -346,115 +346,115 @@ pub enum QueryReturnType {
 	Multiple,
 }
 
-fn execute_query<'a, S>(
-	mut query: AQLQuery,
-	parent_query: Option<AQLQuery>,
-	entity: &'a DbEntity,
-	collection: &'a str,
-	return_type: QueryReturnType,
-	arguments: &'a Arguments<S>,
+async fn execute_internal_query<S>(
+	query: AQLQuery,
+	collection: &str,
 	query_arguments: HashMap<String, InputValue<S>>,
-) -> FutureType<'a, S>
+) -> Vec<JsonValue>
 where
 	S: AsyncScalarValue,
 {
 	let time = std::time::Instant::now();
 
-	// TODO: Refactor this
-	Box::pin(async move {
-		let keys = if let Some(parent) = parent_query {
-			let parent_str = parent.to_aql();
+	let aql = query.to_aql();
 
-			println!("{}", &parent_str);
+	println!("Internal Query: {}", &aql);
 
-			let mut entries_query = AqlQuery::builder()
-				.query(&parent_str)
-				.bind_var("@collection".to_string(), collection.clone());
+	let mut entries_query = AqlQuery::builder()
+		.query(&aql)
+		.bind_var("@collection".to_string(), collection.clone());
 
-			if matches!(return_type, QueryReturnType::Single) {
-				if let Some(key_var) = arguments.get::<String>("_key") {
-					entries_query = entries_query.bind_var(query.get_argument_key("_key"), key_var);
+	for (key, value) in query_arguments {
+		match value {
+			InputValue::Scalar(s) => {
+				if let Some(int) = s.as_int() {
+					entries_query =
+						entries_query.bind_var(query.get_argument_key(key.as_str()), int);
+				} else if let Some(float) = s.as_float() {
+					entries_query =
+						entries_query.bind_var(query.get_argument_key(key.as_str()), float);
+				} else if let Some(str) = s.as_string() {
+					entries_query =
+						entries_query.bind_var(query.get_argument_key(key.as_str()), str);
 				}
 			}
-
-			let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
-				.get()
-				.await
-				.database
-				.aql_query(entries_query.build())
-				.await;
-
-			println!("SQL: {:?}", time.elapsed());
-
-			let mut keys = Vec::new();
-
-			if let Ok(data) = entries {
-				for datum in data {
-					keys.push(datum["_key"].as_str().unwrap().to_string())
-				}
-			}
-
-			Some(keys)
-		} else {
-			None
-		};
-
-		if keys.is_some() {
-			query.filter = Some(Box::new(AQLFilterOperation {
-				left_node: Box::new(AQLQueryParameter("_key".to_string())),
-				operation: AQLOperation::In,
-				right_node: Box::new(AQLQueryBind("keys".to_string())),
-			}));
-		}
-
-		let query_str = query.to_aql();
-
-		println!("{}", &query_str);
-
-		let mut entries_query = AqlQuery::builder()
-			.query(&query_str)
-			.bind_var("@collection".to_string(), collection.clone());
-
-		if keys.is_some() {
-			entries_query = entries_query.bind_var(query.get_argument_key("keys"), keys.unwrap())
-		}
-
-		for (key, value) in query_arguments {
-			match value {
-				InputValue::Scalar(s) => {
-					if let Some(int) = s.as_int() {
-						entries_query =
-							entries_query.bind_var(query.get_argument_key(key.as_str()), int);
-					} else if let Some(float) = s.as_float() {
-						entries_query =
-							entries_query.bind_var(query.get_argument_key(key.as_str()), float);
-					} else if let Some(str) = s.as_string() {
-						entries_query =
-							entries_query.bind_var(query.get_argument_key(key.as_str()), str);
-					}
-				}
-				_ => {
-					println!(
-						"WARN: Using non-scalar for query arguments ({}, {})",
-						key,
-						value.to_string()
-					)
-				}
+			_ => {
+				println!(
+					"WARN: Using non-scalar for query arguments ({}, {})",
+					key,
+					value.to_string()
+				)
 			}
 		}
+	}
 
-		let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
-			.get()
-			.await
-			.database
-			.aql_query(entries_query.build())
-			.await;
+	let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
+		.get()
+		.await
+		.database
+		.aql_query(entries_query.build())
+		.await;
 
-		println!("SQL: {:?}", time.elapsed());
+	println!("Internal Query AQL: {:?}", time.elapsed());
 
-		match return_type {
-			QueryReturnType::Single => get_single_entry(entries, entity.name.clone()),
-			QueryReturnType::Multiple => get_multiple_entries(entries),
+	entries.unwrap()
+}
+
+async fn execute_query<'a, S>(
+	query: AQLQuery,
+	entity: &'a DbEntity,
+	collection: &'a str,
+	return_type: QueryReturnType,
+	query_arguments: HashMap<String, InputValue<S>>,
+) -> ExecutionResult<S>
+where
+	S: AsyncScalarValue,
+{
+	let time = std::time::Instant::now();
+
+	let query_str = query.to_aql();
+
+	println!("{}", &query_str);
+
+	let mut entries_query = AqlQuery::builder()
+		.query(&query_str)
+		.bind_var("@collection".to_string(), collection.clone());
+
+	for (key, value) in query_arguments {
+		match value {
+			InputValue::Scalar(s) => {
+				if let Some(int) = s.as_int() {
+					entries_query =
+						entries_query.bind_var(query.get_argument_key(key.as_str()), int);
+				} else if let Some(float) = s.as_float() {
+					entries_query =
+						entries_query.bind_var(query.get_argument_key(key.as_str()), float);
+				} else if let Some(str) = s.as_string() {
+					entries_query =
+						entries_query.bind_var(query.get_argument_key(key.as_str()), str);
+				}
+			}
+			_ => {
+				println!(
+					"WARN: Using non-scalar for query arguments ({}, {})",
+					key,
+					value.to_string()
+				)
+			}
 		}
-	})
+	}
+
+	let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
+		.get()
+		.await
+		.database
+		.aql_query(entries_query.build())
+		.await;
+
+	println!("SQL: {:?}", time.elapsed());
+
+	match return_type {
+		QueryReturnType::Single => get_single_entry(entries, entity.name.clone()),
+		QueryReturnType::Multiple => get_multiple_entries(entries),
+	}
 }

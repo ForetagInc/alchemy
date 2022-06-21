@@ -19,15 +19,15 @@ crate::api::schema::operations::utils::define_operation!(
 
 			println!("Query AQL Filter generation: {:?}", time.elapsed());
 
-			execute_query(
-				query,
-				None,
-				entity,
-				collection,
-				QueryReturnType::Multiple,
-				args,
-				HashMap::new()
-			)
+			Box::pin(async move {
+				execute_query(
+					query,
+					entity,
+					collection,
+					QueryReturnType::Multiple,
+					HashMap::new()
+				).await
+			})
 		},
 		name(data) -> {
 			format!(

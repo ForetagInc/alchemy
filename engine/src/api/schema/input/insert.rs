@@ -79,17 +79,26 @@ where
 	where
 		S: 'r,
 	{
+		let mut args = Vec::new();
+
 		let attributes = registry.arg::<EntityAttributesInsert>(
 			"attributes",
 			&EntityAttributesInsertData::new(info.data, info.registry),
 		);
-		let relationships = registry.arg::<Option<EntityRelationshipsInsert>>(
-			"relationships",
-			&EntityRelationshipsInsertData::new(info.data, info.registry),
-		);
+
+		args.push(attributes);
+
+		if !info.data.relationships.is_empty() {
+			let relationships = registry.arg::<Option<EntityRelationshipsInsert>>(
+				"relationships",
+				&EntityRelationshipsInsertData::new(info.data, info.registry),
+			);
+
+			args.push(relationships);
+		}
 
 		registry
-			.build_input_object_type::<EntityInsert<S>>(info, &vec![attributes, relationships])
+			.build_input_object_type::<EntityInsert<S>>(info, &args)
 			.into_meta()
 	}
 }

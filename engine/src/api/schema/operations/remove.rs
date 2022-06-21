@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use convert_case::Casing;
 
 use crate::api::schema::fields::Entity;
@@ -18,15 +20,15 @@ crate::api::schema::operations::utils::define_operation!(
 			query.method = AQLQueryMethod::Remove;
 			query.filter = Some(get_filter_by_indices_attributes(&indices_filter));
 
-			execute_query(
-				query,
-				None,
-				entity,
-				collection,
-				QueryReturnType::Single,
-				arguments,
-				indices_filter
-			)
+			Box::pin(async move {
+				execute_query(
+					query,
+					entity,
+					collection,
+					QueryReturnType::Single,
+					HashMap::new()
+				).await
+			})
 		},
 		name(data) -> {
 			format!(

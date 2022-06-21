@@ -17,15 +17,15 @@ crate::api::schema::operations::utils::define_operation!(
 			query.filter = Some(get_filter_by_indices_attributes(&indices_filter));
 			query.limit = Some(1);
 
-			execute_query(
-				query,
-				None,
-				entity,
-				collection,
-				QueryReturnType::Single,
-				args,
-				indices_filter,
-			)
+			Box::pin(async move {
+				execute_query(
+					query,
+					entity,
+					collection,
+					QueryReturnType::Single,
+					indices_filter,
+				).await
+			})
 		},
 		name(data) -> {
 			format!(
