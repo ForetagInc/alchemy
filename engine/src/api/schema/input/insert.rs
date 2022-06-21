@@ -128,8 +128,8 @@ where
 				attributes = input_value_to_string(object)
 			} else if k == "relationships" {
 				for (rel_key, rel_object) in object.to_object_value().unwrap() {
-					for r in rel_object.to_list_value().unwrap() {
-						for (rel_type, rel_data) in r.to_object_value().unwrap() {
+					let mut parse_object = |object: &InputValue<S>| {
+						for (rel_type, rel_data) in object.to_object_value().unwrap() {
 							match rel_type {
 								"addExisting" => {
 									relationships.push(EntityInsertRelationship::Existing(
@@ -144,6 +144,16 @@ where
 								&_ => {}
 							}
 						}
+					};
+
+					match rel_object {
+						InputValue::List(list) => {
+							for r in list {
+								parse_object(&r.item)
+							}
+						}
+						InputValue::Object(_) => parse_object(rel_object),
+						_ => {}
 					}
 				}
 			}

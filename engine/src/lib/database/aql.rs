@@ -14,6 +14,7 @@ pub enum AQLQueryMethod {
 	Update,
 	Remove,
 	Create,
+	CreateRelationship(Box<AQLQuery>),
 }
 
 pub struct AQLQuery {
@@ -50,6 +51,7 @@ impl AQLQuery {
 			AQLQueryMethod::Update => self.to_update_aql(),
 			AQLQueryMethod::Remove => self.to_remove_aql(),
 			AQLQueryMethod::Create => self.to_create_aql(),
+			AQLQueryMethod::CreateRelationship(ref q) => self.to_create_relationship_aql(q),
 		}
 	}
 
@@ -124,6 +126,13 @@ impl AQLQuery {
 		format!(
 			"INSERT {} INTO @@collection RETURN {{ _key: NEW._key }}",
 			self.creates,
+		)
+	}
+
+	fn to_create_relationship_aql(&self, inner: &Box<AQLQuery>) -> String {
+		format!(
+			"INSERT {{_from: @__from, _to: ({})[0][\"_id\"]}} INTO @@edge",
+			inner.to_aql(),
 		)
 	}
 

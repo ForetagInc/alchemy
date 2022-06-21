@@ -350,6 +350,7 @@ async fn execute_internal_query<S>(
 	query: AQLQuery,
 	collection: &str,
 	query_arguments: HashMap<String, InputValue<S>>,
+	query_hardcoded_arguments: HashMap<String, InputValue<S>>,
 ) -> Vec<JsonValue>
 where
 	S: AsyncScalarValue,
@@ -376,6 +377,27 @@ where
 				} else if let Some(str) = s.as_string() {
 					entries_query =
 						entries_query.bind_var(query.get_argument_key(key.as_str()), str);
+				}
+			}
+			_ => {
+				println!(
+					"WARN: Using non-scalar for query arguments ({}, {})",
+					key,
+					value.to_string()
+				)
+			}
+		}
+	}
+
+	for (key, value) in query_hardcoded_arguments {
+		match value {
+			InputValue::Scalar(s) => {
+				if let Some(int) = s.as_int() {
+					entries_query = entries_query.bind_var(key.as_str(), int);
+				} else if let Some(float) = s.as_float() {
+					entries_query = entries_query.bind_var(key.as_str(), float);
+				} else if let Some(str) = s.as_string() {
+					entries_query = entries_query.bind_var(key.as_str(), str);
 				}
 			}
 			_ => {
