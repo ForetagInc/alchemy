@@ -25,7 +25,8 @@ crate::api::schema::operations::utils::define_operation!(
 					entity,
 					collection,
 					QueryReturnType::Multiple,
-					HashMap::new()
+					HashMap::new(),
+					HashMap::<String, String>::new()
 				).await
 			})
 		},

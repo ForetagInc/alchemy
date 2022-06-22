@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use convert_case::Casing;
 
 use crate::api::schema::fields::Entity;
@@ -24,6 +26,7 @@ crate::api::schema::operations::utils::define_operation!(
 					collection,
 					QueryReturnType::Single,
 					indices_filter,
+					HashMap::<String, String>::new()
 				).await
 			})
 		},

@@ -6,15 +6,12 @@ use juniper::InputValue;
 use crate::api::schema::fields::Entity;
 use crate::api::schema::input::insert::{EntityInsert, EntityInsertData, EntityInsertRelationship};
 use crate::api::schema::operations::{
-	execute_internal_query, execute_query, get_filter_by_indices_attributes, OperationData,
-	QueryReturnType,
+	execute_internal_query, execute_query, get_filter_by_indices_attributes, get_filter_by_key,
+	OperationData, QueryReturnType,
 };
 use crate::api::schema::{input_value_to_string, AsyncScalarValue};
 use crate::lib::database::api::DbRelationship;
-use crate::lib::database::aql::{
-	AQLFilterOperation, AQLOperation, AQLProperty, AQLQuery, AQLQueryBind, AQLQueryMethod,
-	AQLQueryParameter,
-};
+use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryMethod};
 
 fn get_relationship_data(relationships: &Vec<DbRelationship>, name: String) -> (&str, &str, &str) {
 	let mut edge = "";
@@ -131,11 +128,7 @@ crate::api::schema::operations::utils::define_operation!(
 					insert_relationships(object.relationships, &inserted_key, data).await;
 				}
 
-				query.filter = Some(Box::new(AQLFilterOperation {
-					left_node: Box::new(AQLQueryParameter("_key".to_string())),
-					operation: AQLOperation::Equal,
-					right_node: Box::new(AQLQueryBind("_key".to_string())),
-				}));
+				query.filter = Some(get_filter_by_key());
 
 				let mut args = HashMap::new();
 
@@ -146,7 +139,8 @@ crate::api::schema::operations::utils::define_operation!(
 					entity,
 					collection,
 					QueryReturnType::Single,
-					args
+					args,
+					HashMap::<String, String>::new()
 				).await
 			})
 		},

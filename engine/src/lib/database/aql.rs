@@ -11,7 +11,7 @@ pub struct AQLQueryRelationship {
 
 pub enum AQLQueryMethod {
 	Get,
-	Update,
+	Update(String),
 	Remove,
 	Create,
 	CreateRelationship(Option<Box<AQLQuery>>),
@@ -22,7 +22,6 @@ pub struct AQLQuery {
 	pub method: AQLQueryMethod,
 	pub filter: Option<Box<dyn AQLNode>>,
 	pub relations: HashMap<String, AQLQuery>,
-	pub updates: String,
 	pub creates: String,
 	pub limit: Option<i32>,
 	pub relationship: Option<AQLQueryRelationship>,
@@ -37,7 +36,6 @@ impl AQLQuery {
 			method: AQLQueryMethod::Get,
 			filter: None,
 			relations: HashMap::new(),
-			updates: "null".to_string(),
 			creates: "null".to_string(),
 			limit: None,
 			relationship: None,
@@ -46,19 +44,13 @@ impl AQLQuery {
 	}
 
 	pub fn to_aql(&self) -> String {
-		match self.method {
-			AQLQueryMethod::Get => self.to_get_aql("@@collection"),
-			AQLQueryMethod::Update => self.to_update_aql("@@collection"),
-			AQLQueryMethod::Remove => self.to_remove_aql("@@collection"),
-			AQLQueryMethod::Create => self.to_create_aql("@@collection"),
-			AQLQueryMethod::CreateRelationship(ref q) => self.to_create_relationship_aql(q),
-		}
+		self.to_aql_with_collection("@@collection")
 	}
 
 	pub fn to_aql_with_collection(&self, inner: &str) -> String {
 		match self.method {
 			AQLQueryMethod::Get => self.to_get_aql(inner),
-			AQLQueryMethod::Update => self.to_update_aql(inner),
+			AQLQueryMethod::Update(ref data) => self.to_update_aql(inner, data),
 			AQLQueryMethod::Remove => self.to_remove_aql(inner),
 			AQLQueryMethod::Create => self.to_create_aql(inner),
 			AQLQueryMethod::CreateRelationship(ref q) => self.to_create_relationship_aql(q),
@@ -112,13 +104,12 @@ impl AQLQuery {
 		}
 	}
 
-	fn to_update_aql(&self, inner: &str) -> String {
+	fn to_update_aql(&self, inner: &str, data: &str) -> String {
 		format!(
-			"FOR {var} IN {col} {} UPDATE {var}.`_key` WITH {} IN {col} {} RETURN {}",
+			"FOR {var} IN {col} {} UPDATE {var}.`_key` WITH {} IN {col} {} RETURN {{ _key: NEW._key }}",
 			self.describe_filter(),
-			self.updates,
+			data,
 			self.describe_limit(),
-			self.describe_parameters(),
 			var = self.get_variable_name(),
 			col = inner
 		)

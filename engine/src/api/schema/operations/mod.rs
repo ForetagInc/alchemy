@@ -284,6 +284,22 @@ where
 	})
 }
 
+fn get_filter_by_key() -> Box<dyn AQLNode> {
+	Box::new(AQLFilterOperation {
+		left_node: Box::new(AQLQueryParameter("_key".to_string())),
+		operation: AQLOperation::Equal,
+		right_node: Box::new(AQLQueryBind("_key".to_string())),
+	})
+}
+
+fn get_filter_in_keys() -> Box<dyn AQLNode> {
+	Box::new(AQLFilterOperation {
+		left_node: Box::new(AQLQueryParameter("_key".to_string())),
+		operation: AQLOperation::In,
+		right_node: Box::new(AQLQueryBind("_keys".to_string())),
+	})
+}
+
 fn get_single_entry<S>(
 	entries: Result<Vec<JsonValue>, ClientError>,
 	entity_name: String,
@@ -385,16 +401,20 @@ where
 	entries.unwrap()
 }
 
-async fn execute_query<'a, S>(
+async fn execute_query<'a, S, T>(
 	query: AQLQuery,
 	entity: &'a DbEntity,
 	collection: &'a str,
 	return_type: QueryReturnType,
 	query_arguments: HashMap<String, InputValue<S>>,
+	raw_arguments: HashMap<String, T>,
 ) -> ExecutionResult<S>
 where
 	S: AsyncScalarValue,
+	T: Into<JsonValue>,
 {
+	// TODO: Change HashMap InputValue to be parsed before
+
 	let time = std::time::Instant::now();
 
 	let query_str = query.to_aql();
@@ -408,6 +428,10 @@ where
 	utils::assign_parameters!(query_arguments, (key, v) -> {
 		entries_query = entries_query.bind_var(query.get_argument_key(key.as_str()), v);
 	});
+
+	for (k, v) in raw_arguments {
+		entries_query = entries_query.bind_var(query.get_argument_key(k.as_str()), v);
+	}
 
 	let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
 		.get()
