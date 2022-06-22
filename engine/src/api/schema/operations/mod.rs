@@ -365,50 +365,13 @@ where
 		.query(&aql)
 		.bind_var("@collection".to_string(), collection.clone());
 
-	for (key, value) in query_arguments {
-		match value {
-			InputValue::Scalar(s) => {
-				if let Some(int) = s.as_int() {
-					entries_query =
-						entries_query.bind_var(query.get_argument_key(key.as_str()), int);
-				} else if let Some(float) = s.as_float() {
-					entries_query =
-						entries_query.bind_var(query.get_argument_key(key.as_str()), float);
-				} else if let Some(str) = s.as_string() {
-					entries_query =
-						entries_query.bind_var(query.get_argument_key(key.as_str()), str);
-				}
-			}
-			_ => {
-				println!(
-					"WARN: Using non-scalar for query arguments ({}, {})",
-					key,
-					value.to_string()
-				)
-			}
-		}
-	}
+	utils::assign_parameters!(query_arguments, (key, v) -> {
+		entries_query = entries_query.bind_var(query.get_argument_key(key.as_str()), v);
+	});
 
-	for (key, value) in query_hardcoded_arguments {
-		match value {
-			InputValue::Scalar(s) => {
-				if let Some(int) = s.as_int() {
-					entries_query = entries_query.bind_var(key.as_str(), int);
-				} else if let Some(float) = s.as_float() {
-					entries_query = entries_query.bind_var(key.as_str(), float);
-				} else if let Some(str) = s.as_string() {
-					entries_query = entries_query.bind_var(key.as_str(), str);
-				}
-			}
-			_ => {
-				println!(
-					"WARN: Using non-scalar for query arguments ({}, {})",
-					key,
-					value.to_string()
-				)
-			}
-		}
-	}
+	utils::assign_parameters!(query_hardcoded_arguments, (key, v) -> {
+		entries_query = entries_query.bind_var(key.as_str(), v);
+	});
 
 	let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
 		.get()
@@ -442,29 +405,9 @@ where
 		.query(&query_str)
 		.bind_var("@collection".to_string(), collection.clone());
 
-	for (key, value) in query_arguments {
-		match value {
-			InputValue::Scalar(s) => {
-				if let Some(int) = s.as_int() {
-					entries_query =
-						entries_query.bind_var(query.get_argument_key(key.as_str()), int);
-				} else if let Some(float) = s.as_float() {
-					entries_query =
-						entries_query.bind_var(query.get_argument_key(key.as_str()), float);
-				} else if let Some(str) = s.as_string() {
-					entries_query =
-						entries_query.bind_var(query.get_argument_key(key.as_str()), str);
-				}
-			}
-			_ => {
-				println!(
-					"WARN: Using non-scalar for query arguments ({}, {})",
-					key,
-					value.to_string()
-				)
-			}
-		}
-	}
+	utils::assign_parameters!(query_arguments, (key, v) -> {
+		entries_query = entries_query.bind_var(query.get_argument_key(key.as_str()), v);
+	});
 
 	let entries: Result<Vec<JsonValue>, ClientError> = DATABASE
 		.get()

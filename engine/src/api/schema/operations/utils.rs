@@ -68,4 +68,38 @@ macro_rules! define_operation {
 	}
 }
 
+macro_rules! assign_parameters {
+	($args:expr, ($k:ident, $v:ident) -> $closure:tt) => {
+		for (key, value) in $args {
+			let $k = key.clone();
+
+			match value {
+				::juniper::InputValue::Scalar(s) => {
+					if let Some(int) = s.as_int() {
+						let $v = int;
+
+						$closure
+					} else if let Some(float) = s.as_float() {
+						let $v = float;
+
+						$closure
+					} else if let Some(str) = s.as_string() {
+						let $v = str;
+
+						$closure
+					}
+				}
+				_ => {
+					println!(
+						"WARN: Using non-scalar for query arguments ({}, {})",
+						key,
+						value.to_string()
+					)
+				}
+			}
+		}
+	};
+}
+
+pub(crate) use assign_parameters;
 pub(crate) use define_operation;
