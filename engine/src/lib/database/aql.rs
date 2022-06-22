@@ -14,7 +14,7 @@ pub enum AQLQueryMethod {
 	Update,
 	Remove,
 	Create,
-	CreateRelationship(Box<AQLQuery>),
+	CreateRelationship(Option<Box<AQLQuery>>),
 }
 
 pub struct AQLQuery {
@@ -47,10 +47,20 @@ impl AQLQuery {
 
 	pub fn to_aql(&self) -> String {
 		match self.method {
-			AQLQueryMethod::Get => self.to_get_aql(),
-			AQLQueryMethod::Update => self.to_update_aql(),
-			AQLQueryMethod::Remove => self.to_remove_aql(),
-			AQLQueryMethod::Create => self.to_create_aql(),
+			AQLQueryMethod::Get => self.to_get_aql("@@collection"),
+			AQLQueryMethod::Update => self.to_update_aql("@@collection"),
+			AQLQueryMethod::Remove => self.to_remove_aql("@@collection"),
+			AQLQueryMethod::Create => self.to_create_aql("@@collection"),
+			AQLQueryMethod::CreateRelationship(ref q) => self.to_create_relationship_aql(q),
+		}
+	}
+
+	pub fn to_aql_with_collection(&self, inner: &str) -> String {
+		match self.method {
+			AQLQueryMethod::Get => self.to_get_aql(inner),
+			AQLQueryMethod::Update => self.to_update_aql(inner),
+			AQLQueryMethod::Remove => self.to_remove_aql(inner),
+			AQLQueryMethod::Create => self.to_create_aql(inner),
 			AQLQueryMethod::CreateRelationship(ref q) => self.to_create_relationship_aql(q),
 		}
 	}
@@ -73,7 +83,7 @@ impl AQLQuery {
 		)
 	}
 
-	fn to_get_aql(&self) -> String {
+	fn to_get_aql(&self, inner: &str) -> String {
 		if let Some(ref r) = self.relationship {
 			format!(
 				"(FOR {} IN {} {} {} {} {} RETURN {}){}",
@@ -92,8 +102,9 @@ impl AQLQuery {
 			)
 		} else {
 			format!(
-				"FOR {} IN @@collection {} {} RETURN {}",
+				"FOR {} IN {} {} {} RETURN {}",
 				self.get_variable_name(),
+				inner,
 				self.describe_filter(),
 				self.describe_limit(),
 				self.describe_parameters()
@@ -101,38 +112,47 @@ impl AQLQuery {
 		}
 	}
 
-	fn to_update_aql(&self) -> String {
+	fn to_update_aql(&self, inner: &str) -> String {
 		format!(
-			"FOR {var} IN @@collection {} UPDATE {var}.`_key` WITH {} IN @@collection {} RETURN {}",
+			"FOR {var} IN {col} {} UPDATE {var}.`_key` WITH {} IN {col} {} RETURN {}",
 			self.describe_filter(),
 			self.updates,
 			self.describe_limit(),
 			self.describe_parameters(),
 			var = self.get_variable_name(),
+			col = inner
 		)
 	}
 
-	fn to_remove_aql(&self) -> String {
+	fn to_remove_aql(&self, inner: &str) -> String {
 		format!(
-			"FOR {var} IN @@collection {} REMOVE {var}.`_key` IN @@collection {} RETURN {}",
+			"FOR {var} IN {col} {} REMOVE {var}.`_key` IN {col} {} RETURN {}",
 			self.describe_filter(),
 			self.describe_limit(),
 			self.describe_parameters(),
 			var = self.get_variable_name(),
+			col = inner
 		)
 	}
 
-	fn to_create_aql(&self) -> String {
+	fn to_create_aql(&self, inner: &str) -> String {
 		format!(
-			"INSERT {} INTO @@collection RETURN {{ _key: NEW._key }}",
-			self.creates,
+			"INSERT {} INTO {} RETURN {{ _key: NEW._key }}",
+			self.creates, inner
 		)
 	}
 
-	fn to_create_relationship_aql(&self, inner: &Box<AQLQuery>) -> String {
+	fn to_create_relationship_aql(&self, inner: &Option<Box<AQLQuery>>) -> String {
 		format!(
-			"INSERT {{_from: @__from, _to: ({})[0][\"_id\"]}} INTO @@edge",
-			inner.to_aql(),
+			"INSERT {{_from: @__from, _to: {}}} INTO @@collection",
+			if let Some(inner_query) = inner {
+				format!(
+					"({})[0][\"_id\"]",
+					inner_query.to_aql_with_collection("@@inner_collection")
+				)
+			} else {
+				"@__to".to_string()
+			},
 		)
 	}
 

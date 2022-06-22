@@ -28,7 +28,7 @@ crate::api::schema::operations::utils::define_operation!(
 					entity,
 					collection,
 					QueryReturnType::Single,
-					HashMap::new()
+					indices_filter,
 				).await
 			})
 		},
