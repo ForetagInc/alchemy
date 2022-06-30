@@ -117,10 +117,9 @@ impl AQLQuery {
 
 	fn to_remove_aql(&self, inner: &str) -> String {
 		format!(
-			"FOR {var} IN {col} {} REMOVE {var}.`_key` IN {col} {} RETURN {}",
+			"FOR {var} IN {col} {} REMOVE {var}.`_key` IN {col} {} RETURN {{ _key: OLD._key }}",
 			self.describe_filter(),
 			self.describe_limit(),
-			self.describe_parameters(),
 			var = self.get_variable_name(),
 			col = inner
 		)

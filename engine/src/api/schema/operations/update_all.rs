@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use convert_case::Casing;
-use juniper::InputValue;
 
 use crate::api::schema::fields::Entity;
 use crate::api::schema::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
