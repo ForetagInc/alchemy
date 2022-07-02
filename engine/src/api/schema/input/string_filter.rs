@@ -125,35 +125,6 @@ where
 	}
 }
 
-fn get_aql_value<S>(value: &InputValue<S>) -> Box<dyn AQLNode>
-where
-	S: ScalarValue,
-{
-	match value.as_string_value() {
-		None => Box::new(AQLQueryRaw("null".to_string())),
-		Some(v) => Box::new(AQLQueryValue(v.to_string())),
-	}
-}
-
-fn get_aql_parameter(param: &str) -> Box<AQLQueryParameter> {
-	Box::new(AQLQueryParameter(param.to_string()))
-}
-
-fn get_filter_operation<S>(
-	param: &str,
-	operation: AQLOperation,
-	value: &InputValue<S>,
-) -> Box<dyn AQLNode>
-where
-	S: ScalarValue,
-{
-	Box::new(AQLFilterOperation {
-		left_node: get_aql_parameter(param),
-		operation,
-		right_node: get_aql_value(value),
-	})
-}
-
 define_filter!(String, StringEqual, "_eq", AQLOperation::Equal);
 define_filter!(String, StringGreaterThan, "_gt", AQLOperation::GreaterThan);
 define_filter!(
