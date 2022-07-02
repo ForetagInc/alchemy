@@ -1,3 +1,4 @@
+use crate::api::schema::input::define_filter;
 use crate::api::schema::input::filter::{EntityFilterData, FilterOperation};
 use juniper::meta::{Argument, MetaType};
 use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
@@ -64,7 +65,7 @@ where
 		args.push(StringLessThan::get_schema_argument(registry));
 		args.push(StringLessOrEqualThan::get_schema_argument(registry));
 		args.push(StringNotEqual::get_schema_argument(registry));
-		args.push(StringLike::get_schema_argument(registry));
+		args.push(StringNotLike::get_schema_argument(registry));
 		args.push(StringNotRegex::get_schema_argument(registry));
 		args.push(StringRegex::get_schema_argument(registry));
 
@@ -153,202 +154,23 @@ where
 	})
 }
 
-pub struct StringEqual;
-
-impl<S> FilterOperation<S> for StringEqual
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_eq", &())
-	}
-}
-
-impl StringEqual {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::Equal, value)
-	}
-}
-
-pub struct StringGreaterThan;
-
-impl<S> FilterOperation<S> for StringGreaterThan
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_gt", &())
-	}
-}
-
-impl StringGreaterThan {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::GreaterThan, value)
-	}
-}
-
-pub struct StringGreaterOrEqualThan;
-
-impl<S> FilterOperation<S> for StringGreaterOrEqualThan
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_gte", &())
-	}
-}
-
-impl StringGreaterOrEqualThan {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::GreaterOrEqualThan, value)
-	}
-}
-
-pub struct StringLike;
-
-impl<S> FilterOperation<S> for StringLike
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_like", &())
-	}
-}
-
-impl StringLike {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::Like, value)
-	}
-}
-
-pub struct StringLessThan;
-
-impl<S> FilterOperation<S> for StringLessThan
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_lt", &())
-	}
-}
-
-impl StringLessThan {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::LessThan, value)
-	}
-}
-
-pub struct StringLessOrEqualThan;
-
-impl<S> FilterOperation<S> for StringLessOrEqualThan
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_lte", &())
-	}
-}
-
-impl StringLessOrEqualThan {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::LessOrEqualThan, value)
-	}
-}
-
-pub struct StringNotEqual;
-
-impl<S> FilterOperation<S> for StringNotEqual
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_neq", &())
-	}
-}
-
-impl StringNotEqual {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::NotEqual, value)
-	}
-}
-
-pub struct StringNotLike;
-
-impl<S> FilterOperation<S> for StringNotLike
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_nlike", &())
-	}
-}
-
-impl StringNotLike {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::NotLike, value)
-	}
-}
-
-pub struct StringNotRegex;
-
-impl<S> FilterOperation<S> for StringNotRegex
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_nregex", &())
-	}
-}
-
-impl StringNotRegex {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::NotRegex, value)
-	}
-}
-
-pub struct StringRegex;
-
-impl<S> FilterOperation<S> for StringRegex
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<String>>("_regex", &())
-	}
-}
-
-impl StringRegex {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		get_filter_operation(attribute, AQLOperation::Regex, value)
-	}
-}
+define_filter!(String, StringEqual, "_eq", AQLOperation::Equal);
+define_filter!(String, StringGreaterThan, "_gt", AQLOperation::GreaterThan);
+define_filter!(
+	String,
+	StringGreaterOrEqualThan,
+	"_gte",
+	AQLOperation::GreaterOrEqualThan
+);
+define_filter!(String, StringLike, "_like", AQLOperation::Like);
+define_filter!(String, StringLessThan, "_lt", AQLOperation::LessThan);
+define_filter!(
+	String,
+	StringLessOrEqualThan,
+	"_lte",
+	AQLOperation::LessOrEqualThan
+);
+define_filter!(String, StringNotEqual, "_neq", AQLOperation::NotEqual);
+define_filter!(String, StringNotLike, "_nlike", AQLOperation::NotLike);
+define_filter!(String, StringNotRegex, "_nregex", AQLOperation::NotRegex);
+define_filter!(String, StringRegex, "_regex", AQLOperation::Regex);
