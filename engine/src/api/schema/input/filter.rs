@@ -100,6 +100,14 @@ where
 					property.name.as_str(),
 					&input::str::FilterData::from(info),
 				),
+				DbScalarType::Float => registry.arg::<Option<input::float::Filter<'a, S>>>(
+					property.name.as_str(),
+					&input::float::FilterData::from(info),
+				),
+				DbScalarType::Int => registry.arg::<Option<input::int::Filter<'a, S>>>(
+					property.name.as_str(),
+					&input::int::FilterData::from(info),
+				),
 				_ => registry.arg::<Option<i32>>(property.name.as_str(), &()),
 			};
 
@@ -272,11 +280,11 @@ where
 
 	for (name, value) in &filter.attributes {
 		if let Some(scalar) = properties.get(name) {
-			node.nodes.push(Box::new(create_aql_node_from_attribute(
+			node.nodes.push(create_aql_node_from_attribute(
 				name.to_string(),
 				value,
 				scalar,
-			)));
+			));
 		}
 	}
 
@@ -287,12 +295,14 @@ fn create_aql_node_from_attribute<S>(
 	name: String,
 	value: &InputValue<S>,
 	scalar: &DbScalarType,
-) -> impl AQLNode
+) -> Box<dyn AQLNode>
 where
 	S: ScalarValue,
 {
 	match scalar {
-		DbScalarType::String => input::str::Filter::get_aql_filter_node(name, value),
+		DbScalarType::String => Box::new(input::str::Filter::get_aql_filter_node(name, value)),
+		DbScalarType::Float => Box::new(input::float::Filter::get_aql_filter_node(name, value)),
+		DbScalarType::Int => Box::new(input::int::Filter::get_aql_filter_node(name, value)),
 		_ => todo!(),
 	}
 }
