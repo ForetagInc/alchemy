@@ -362,7 +362,7 @@ impl AQLNode for AQLQueryParameter {
 
 impl AQLNode for AQLQueryValue {
 	fn describe(&self, _: u32) -> String {
-		format!("{:?}", self.0)
+		self.0.clone()
 	}
 }
 

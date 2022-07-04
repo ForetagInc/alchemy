@@ -6,7 +6,7 @@ use juniper::{
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use crate::api::schema::input::string_filter::{StringFilter, StringFilterData};
+use crate::api::schema::input;
 use crate::api::schema::operations::OperationData;
 use crate::lib::database::api::DbScalarType;
 use crate::lib::database::aql::{AQLFilter, AQLLogicalFilter, AQLLogicalOperator, AQLNode};
@@ -96,9 +96,9 @@ where
 
 		for property in &info.operation_data.entity.properties {
 			let arg = match property.scalar_type {
-				DbScalarType::String => registry.arg::<Option<StringFilter<'a, S>>>(
+				DbScalarType::String => registry.arg::<Option<input::str::Filter<'a, S>>>(
 					property.name.as_str(),
-					&StringFilterData::from(info),
+					&input::str::FilterData::from(info),
 				),
 				_ => registry.arg::<Option<i32>>(property.name.as_str(), &()),
 			};
@@ -292,7 +292,7 @@ where
 	S: ScalarValue,
 {
 	match scalar {
-		DbScalarType::String => StringFilter::get_aql_filter_node(name, value),
+		DbScalarType::String => input::str::Filter::get_aql_filter_node(name, value),
 		_ => todo!(),
 	}
 }
