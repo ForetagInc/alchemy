@@ -26,7 +26,7 @@ macro_rules! define_filter {
 						attribute.to_string(),
 					)),
 					operation: crate::lib::database::aql::AQLOperation::$operation,
-					right_node: match value.$fn() {
+					right_node: match crate::api::schema::input::$fn(value) {
 						None => {
 							Box::new(crate::lib::database::aql::AQLQueryRaw("null".to_string()))
 						}
