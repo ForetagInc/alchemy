@@ -1,2 +1,38 @@
 @import '@master/normal.css';
 @import 'remixicon/fonts/remixicon.css';
+
+/** GraphiQL overrides **/
+
+.graphiql-container .topBar,
+.CodeMirror-gutter {
+	background: #060F2F !important;
+	color: #fff;
+	border-color: #202847 !important;
+}
+
+.editor-drag-bar {
+	background: #212847 !important;
+	border: none !important;
+}
+
+.CodeMirror {
+	background: #1A2240 !important;
+}
+
+.CodeMirror-gutters {
+	border-color: #202847 !important;
+}
+
+.graphiql-container .docExplorerShow {
+	background: #2274D6 !important;
+	border: none !important;
+	font-weight: bold;
+	color: white !important;
+}
+
+.graphiql-container .doc-explorer,
+.graphiql-container .doc-explorer-contents,
+.graphiql-container .docExplorerWrap {
+	background: #060F2F !important;
+	color: #fff !important;
+}

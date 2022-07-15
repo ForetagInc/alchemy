@@ -11,6 +11,7 @@
   "dependencies": {
     "@master/css": "^1.35.6",
     "@master/normal.css": "^1.9.5",
+    "graphiql": "^1.9.13",
     "next": "12.2.2",
     "react": "18.2.0",
     "react-dom": "18.2.0",

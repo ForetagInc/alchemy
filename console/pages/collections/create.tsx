@@ -31,7 +31,7 @@ const CreateCollectionPage: NextPage = () => {
 				<div className='flex jc:space-between mb:32'>
 					<h2>Properties {name && 'of a ' + name}</h2>
 					<button
-						className='bg:blue-40 p:6|10 r:10 flex ai:center'
+						className='bg:blue-40 p:6|10 r:12 flex ai:center'
 						onClick={() => {
 							setFields([...fields, { name: '', type: 'text', required: false }]);
 						}}
