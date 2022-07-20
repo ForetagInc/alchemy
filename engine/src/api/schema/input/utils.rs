@@ -47,6 +47,9 @@ macro_rules! define_type_filter {
 		$(
 			$filter_name:ident, $key:literal, $operation:ident;
 		)*
+		$(
+			* $existing_filter:ident, $existing_key:literal;
+		)*
 	}) => {
 		mod $name {
 			use crate::api::schema::input::filter::FilterOperation;
@@ -103,6 +106,10 @@ macro_rules! define_type_filter {
 						args.push($filter_name::get_schema_argument(registry));
 					)*
 
+					$(
+						args.push(crate::api::schema::input::$existing_filter::get_schema_argument(registry));
+					)*
+
 					registry
 						.build_input_object_type::<Self>(info, &args)
 						.into_meta()
@@ -136,6 +143,9 @@ macro_rules! define_type_filter {
 								node.nodes.push(match key.item.as_str() {
 									$(
 										$key => $filter_name::get_aql_filter_node(&attribute, &value.item),
+									)*
+									$(
+										$existing_key => crate::api::schema::input::$existing_filter::get_aql_filter_node(&attribute, &value.item),
 									)*
 									_ => unreachable!(),
 								});

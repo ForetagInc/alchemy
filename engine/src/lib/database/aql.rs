@@ -184,6 +184,12 @@ pub struct AQLFilterOperation {
 	pub right_node: Box<dyn AQLNode>,
 }
 
+pub struct AQLFilterInOperation {
+	pub left_node: Box<dyn AQLNode>,
+	pub vec: Vec<Box<dyn AQLNode>>,
+	pub not: bool,
+}
+
 pub struct AQLFilter {
 	pub attr_node: Box<dyn AQLNode>,
 	pub and_node: Option<Box<dyn AQLNode>>,
@@ -284,6 +290,26 @@ impl AQLNode for AQLFilterOperation {
 			self.operation.to_string(),
 			self.right_node.describe(id)
 		)
+	}
+}
+
+impl AQLNode for AQLFilterInOperation {
+	fn describe(&self, id: u32) -> String {
+		format!(
+			"({} {} IN [{}])",
+			self.left_node.describe(id),
+			if self.not { "NOT" } else { "" },
+			self.vec
+				.iter()
+				.map(|n| n.describe(id))
+				.collect::<Vec<String>>()
+				.join(",")
+				.as_str()
+		)
+	}
+
+	fn valid(&self) -> bool {
+		self.vec.len() > 0
 	}
 }
 
