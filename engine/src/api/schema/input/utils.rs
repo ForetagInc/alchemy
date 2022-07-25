@@ -1,4 +1,4 @@
-macro_rules! define_filter {
+macro_rules! define_simple_filter {
 	($type:ty, $name:ident, $key:literal, $operation:ident, $fn:ident) => {
 		pub struct $name;
 
@@ -40,6 +40,40 @@ macro_rules! define_filter {
 	};
 }
 
+pub(crate) use define_simple_filter;
+
+macro_rules! define_filter {
+	($name:ident, $key:literal, $ret_type:ty, ($attr:ident, $val:ident) -> $get_aql_filter_node:tt) => {
+		pub struct $name;
+
+		impl<S> crate::api::schema::input::filter::FilterOperation<S> for $name
+		where
+			S: ::juniper::ScalarValue,
+		{
+			fn get_schema_argument<'r, 'd>(
+				registry: &mut ::juniper::Registry<'r, S>,
+			) -> ::juniper::meta::Argument<'r, S> {
+				registry.arg::<Option<$ret_type>>($key, &())
+			}
+		}
+
+		impl $name {
+			pub fn get_aql_filter_node<S>(
+				attribute: &str,
+				value: &::juniper::InputValue<S>,
+			) -> Box<dyn crate::lib::database::aql::AQLNode>
+			where
+				S: ::juniper::ScalarValue,
+			{
+				let $attr = attribute;
+				let $val = value;
+
+				$get_aql_filter_node
+			}
+		}
+	};
+}
+
 pub(crate) use define_filter;
 
 macro_rules! define_type_filter {
@@ -48,7 +82,7 @@ macro_rules! define_type_filter {
 			$filter_name:ident, $key:literal, $operation:ident;
 		)*
 		$(
-			* $existing_filter:ident, $existing_key:literal;
+			* $new_filter_name:ident, $new_filter_key:literal, $ret_type:ty, ($attr:ident, $val:ident) -> $get_aql_filter_node:tt;
 		)*
 	}) => {
 		mod $name {
@@ -107,7 +141,7 @@ macro_rules! define_type_filter {
 					)*
 
 					$(
-						args.push(crate::api::schema::input::$existing_filter::get_schema_argument(registry));
+						args.push($new_filter_name::get_schema_argument(registry));
 					)*
 
 					registry
@@ -145,7 +179,7 @@ macro_rules! define_type_filter {
 										$key => $filter_name::get_aql_filter_node(&attribute, &value.item),
 									)*
 									$(
-										$existing_key => crate::api::schema::input::$existing_filter::get_aql_filter_node(&attribute, &value.item),
+										$new_filter_key => $new_filter_name::get_aql_filter_node(&attribute, &value.item),
 									)*
 									_ => unreachable!(),
 								});
@@ -159,12 +193,21 @@ macro_rules! define_type_filter {
 			}
 
 			$(
-				crate::api::schema::input::utils::define_filter!(
+				crate::api::schema::input::utils::define_simple_filter!(
 					$type,
 					$filter_name,
 					$key,
 					$operation,
 					$fn
+				);
+			)*
+
+			$(
+				crate::api::schema::input::utils::define_filter!(
+					$new_filter_name,
+					$new_filter_key,
+					$ret_type,
+					($attr, $val) -> $get_aql_filter_node
 				);
 			)*
 		}

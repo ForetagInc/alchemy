@@ -1,10 +1,8 @@
-use juniper::meta::Argument;
-use juniper::{InputValue, Registry, ScalarValue};
+use std::fmt::Debug;
 
-use crate::api::schema::input::filter::FilterOperation;
-use crate::lib::database::aql::{
-	AQLFilterInOperation, AQLNode, AQLNotFilter, AQLQueryParameter, AQLQueryRaw, AQLQueryValue,
-};
+use juniper::{InputValue, ScalarValue};
+
+use crate::lib::database::aql::{AQLNode, AQLQueryRaw, AQLQueryValue};
 
 pub mod filter;
 pub mod insert;
@@ -30,19 +28,41 @@ utils::define_type_filter!(str, String, "StringComparisonExp", to_str {
 	StringRegex, "_regex", Regex;
 	// TODO: In NotIn ILike NotILike SimilarTo NotSimilarTo IRegex NotIRegex
 
-	* StringInArray, "_in";
-	* StringNotInArray, "_nin";
+	* StringInArray, "_in", Vec<String>, (attr, val) -> {
+		use crate::api::schema::input::{get_list_nodes, to_str};
+		use crate::lib::database::aql::{AQLFilterInOperation, AQLQueryParameter};
+
+		let nodes = get_list_nodes(val, to_str);
+
+		Box::new(AQLFilterInOperation {
+			left_node: Box::new(AQLQueryParameter(attr.to_string())),
+			vec: nodes,
+		})
+	};
+	* StringNotInArray, "_nin", Vec<String>, (attr, val) -> {
+		use crate::api::schema::input::{get_list_nodes, to_str};
+		use crate::lib::database::aql::{AQLFilterInOperation, AQLQueryParameter, AQLNotFilter};
+
+		let nodes = get_list_nodes(val, to_str);
+
+		Box::new(AQLNotFilter(Box::new(AQLFilterInOperation {
+			left_node: Box::new(AQLQueryParameter(attr.to_string())),
+			vec: nodes,
+		})))
+	};
 });
 
-fn get_list_nodes<S>(value: &InputValue<S>) -> Vec<Box<dyn AQLNode>>
+pub fn get_list_nodes<S, M, R>(value: &InputValue<S>, mutator: M) -> Vec<Box<dyn AQLNode>>
 where
 	S: ScalarValue,
+	M: Fn(&InputValue<S>) -> Option<R>,
+	R: Debug,
 {
 	let mut nodes: Vec<Box<dyn AQLNode>> = Vec::new();
 
 	if let Some(list) = value.to_list_value() {
 		for item in list {
-			nodes.push(match to_str(item) {
+			nodes.push(match mutator(item) {
 				None => Box::new(AQLQueryRaw("null".to_string())),
 				Some(v) => Box::new(AQLQueryValue(format!("{:?}", v))),
 			})
@@ -50,56 +70,6 @@ where
 	}
 
 	nodes
-}
-
-pub struct StringInArray;
-
-impl<S> FilterOperation<S> for StringInArray
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<Vec<String>>>("_in", &())
-	}
-}
-
-impl StringInArray {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		let nodes = get_list_nodes(value);
-
-		Box::new(AQLFilterInOperation {
-			left_node: Box::new(AQLQueryParameter(attribute.to_string())),
-			vec: nodes,
-		})
-	}
-}
-
-pub struct StringNotInArray;
-
-impl<S> FilterOperation<S> for StringNotInArray
-where
-	S: ScalarValue,
-{
-	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S> {
-		registry.arg::<Option<Vec<String>>>("_nin", &())
-	}
-}
-
-impl StringNotInArray {
-	pub fn get_aql_filter_node<S>(attribute: &str, value: &InputValue<S>) -> Box<dyn AQLNode>
-	where
-		S: ScalarValue,
-	{
-		let nodes = get_list_nodes(value);
-
-		Box::new(AQLNotFilter(Box::new(AQLFilterInOperation {
-			left_node: Box::new(AQLQueryParameter(attribute.to_string())),
-			vec: nodes,
-		})))
-	}
 }
 
 pub fn to_float<S>(v: &InputValue<S>) -> Option<f64>
