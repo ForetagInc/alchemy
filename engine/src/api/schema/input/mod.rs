@@ -3,8 +3,7 @@ use juniper::{InputValue, Registry, ScalarValue};
 
 use crate::api::schema::input::filter::FilterOperation;
 use crate::lib::database::aql::{
-	AQLFilterInOperation, AQLFilterOperation, AQLNode, AQLOperation, AQLQueryParameter,
-	AQLQueryRaw, AQLQueryValue,
+	AQLFilterInOperation, AQLNode, AQLNotFilter, AQLQueryParameter, AQLQueryRaw, AQLQueryValue,
 };
 
 pub mod filter;
@@ -24,11 +23,9 @@ utils::define_type_filter!(str, String, "StringComparisonExp", to_str {
 	StringEqual, "_eq", Equal;
 	StringGreaterThan, "_gt", GreaterThan;
 	StringGreaterOrEqualThan, "_gte", GreaterOrEqualThan;
-	StringLike, "_like", Like;
 	StringLessThan, "_lt", LessThan;
 	StringLessOrEqualThan, "_lte", LessOrEqualThan;
 	StringNotEqual, "_neq", NotEqual;
-	StringNotLike, "_nlike", NotLike;
 	StringNotRegex, "_nregex", NotRegex;
 	StringRegex, "_regex", Regex;
 	// TODO: In NotIn ILike NotILike SimilarTo NotSimilarTo IRegex NotIRegex
@@ -76,7 +73,6 @@ impl StringInArray {
 		Box::new(AQLFilterInOperation {
 			left_node: Box::new(AQLQueryParameter(attribute.to_string())),
 			vec: nodes,
-			not: false,
 		})
 	}
 }
@@ -99,11 +95,10 @@ impl StringNotInArray {
 	{
 		let nodes = get_list_nodes(value);
 
-		Box::new(AQLFilterInOperation {
+		Box::new(AQLNotFilter(Box::new(AQLFilterInOperation {
 			left_node: Box::new(AQLQueryParameter(attribute.to_string())),
 			vec: nodes,
-			not: true,
-		})
+		})))
 	}
 }
 

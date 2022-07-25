@@ -187,8 +187,9 @@ pub struct AQLFilterOperation {
 pub struct AQLFilterInOperation {
 	pub left_node: Box<dyn AQLNode>,
 	pub vec: Vec<Box<dyn AQLNode>>,
-	pub not: bool,
 }
+
+pub struct AQLNotFilter(pub Box<dyn AQLNode>);
 
 pub struct AQLFilter {
 	pub attr_node: Box<dyn AQLNode>,
@@ -202,11 +203,9 @@ pub enum AQLOperation {
 	In,
 	GreaterThan,
 	GreaterOrEqualThan,
-	Like,
 	LessThan,
 	LessOrEqualThan,
 	NotEqual,
-	NotLike,
 	NotRegex,
 	Regex,
 }
@@ -217,11 +216,9 @@ impl From<&str> for AQLOperation {
 			"_eq" => Self::Equal,
 			"_gt" => Self::GreaterThan,
 			"_gte" => Self::GreaterOrEqualThan,
-			"_like" => Self::Like,
 			"_lt" => Self::LessThan,
 			"_lte" => Self::LessOrEqualThan,
 			"_neq" => Self::NotEqual,
-			"_nlike" => Self::NotLike,
 			"_nregex" => Self::NotRegex,
 			"_regex" => Self::Regex,
 			&_ => unreachable!(),
@@ -236,11 +233,9 @@ impl ToString for AQLOperation {
 			AQLOperation::In => "IN",
 			AQLOperation::GreaterThan => ">",
 			AQLOperation::GreaterOrEqualThan => ">=",
-			AQLOperation::Like => "LIKE",
 			AQLOperation::LessThan => "<",
 			AQLOperation::LessOrEqualThan => "<=",
 			AQLOperation::NotEqual => "!=",
-			AQLOperation::NotLike => "NOT LIKE",
 			AQLOperation::NotRegex => "=~",
 			AQLOperation::Regex => "!~",
 		}
@@ -296,9 +291,8 @@ impl AQLNode for AQLFilterOperation {
 impl AQLNode for AQLFilterInOperation {
 	fn describe(&self, id: u32) -> String {
 		format!(
-			"({} {} IN [{}])",
+			"({} IN [{}])",
 			self.left_node.describe(id),
-			if self.not { "NOT" } else { "" },
 			self.vec
 				.iter()
 				.map(|n| n.describe(id))
@@ -310,6 +304,12 @@ impl AQLNode for AQLFilterInOperation {
 
 	fn valid(&self) -> bool {
 		self.vec.len() > 0
+	}
+}
+
+impl AQLNode for AQLNotFilter {
+	fn describe(&self, id: u32) -> String {
+		format!("(NOT {})", self.0.describe(id))
 	}
 }
 
