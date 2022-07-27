@@ -46,7 +46,7 @@ utils::define_type_filter!(str, String, "StringComparisonExp", to_str {
 	StringNotEqual, "_neq", NotEqual;
 	StringNotRegex, "_nregex", NotRegex;
 	StringRegex, "_regex", Regex;
-	// TODO: ILike NotILike SimilarTo NotSimilarTo IRegex NotIRegex
+	// TODO: SimilarTo NotSimilarTo IRegex NotIRegex
 
 	* StringInArray, "_in", Vec<String>, (attr, val) -> {
 		use crate::api::schema::input::{get_list_nodes, to_str};
@@ -68,6 +68,92 @@ utils::define_type_filter!(str, String, "StringComparisonExp", to_str {
 		Box::new(AQLNotFilter(Box::new(AQLFilterInOperation {
 			left_node: Box::new(AQLQueryParameter(attr.to_string())),
 			vec: nodes,
+		})))
+	};
+	* StringLike, "_like", String, (attr, val) -> {
+		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLQueryValue, AQLNode};
+		use crate::api::schema::input::{to_str};
+
+		let parameters: Vec<Box<dyn AQLNode>> = vec![
+			Box::new(AQLQueryParameter(attr.to_string())),
+			match to_str(val) {
+				None => {
+					Box::new(AQLQueryRaw("null".to_string()))
+				}
+				Some(v) => {
+					Box::new(AQLQueryValue(format!("{:?}", v)))
+				}
+			}
+		];
+
+		Box::new(AQLFunctionCall {
+			name: "LIKE".to_string(),
+			parameters
+		})
+	};
+	* StringNotLike, "_nlike", String, (attr, val) -> {
+		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLQueryValue, AQLNode, AQLNotFilter};
+		use crate::api::schema::input::{to_str};
+
+		let parameters: Vec<Box<dyn AQLNode>> = vec![
+			Box::new(AQLQueryParameter(attr.to_string())),
+			match to_str(val) {
+				None => {
+					Box::new(AQLQueryRaw("null".to_string()))
+				}
+				Some(v) => {
+					Box::new(AQLQueryValue(format!("{:?}", v)))
+				}
+			}
+		];
+
+		Box::new(AQLNotFilter(Box::new(AQLFunctionCall {
+			name: "LIKE".to_string(),
+			parameters
+		})))
+	};
+	* StringILike, "_ilike", String, (attr, val) -> {
+		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLQueryValue, AQLNode};
+		use crate::api::schema::input::{to_str};
+
+		let parameters: Vec<Box<dyn AQLNode>> = vec![
+			Box::new(AQLQueryParameter(attr.to_string())),
+			match to_str(val) {
+				None => {
+					Box::new(AQLQueryRaw("null".to_string()))
+				}
+				Some(v) => {
+					Box::new(AQLQueryValue(format!("{:?}", v)))
+				}
+			},
+			Box::new(AQLQueryRaw("true".to_string()))
+		];
+
+		Box::new(AQLFunctionCall {
+			name: "LIKE".to_string(),
+			parameters
+		})
+	};
+	* StringNotILike, "_nilike", String, (attr, val) -> {
+		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLQueryValue, AQLNode, AQLNotFilter};
+		use crate::api::schema::input::{to_str};
+
+		let parameters: Vec<Box<dyn AQLNode>> = vec![
+			Box::new(AQLQueryParameter(attr.to_string())),
+			match to_str(val) {
+				None => {
+					Box::new(AQLQueryRaw("null".to_string()))
+				}
+				Some(v) => {
+					Box::new(AQLQueryValue(format!("{:?}", v)))
+				}
+			},
+			Box::new(AQLQueryRaw("true".to_string()))
+		];
+
+		Box::new(AQLNotFilter(Box::new(AQLFunctionCall {
+			name: "LIKE".to_string(),
+			parameters
 		})))
 	};
 });

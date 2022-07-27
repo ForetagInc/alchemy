@@ -189,6 +189,11 @@ pub struct AQLFilterInOperation {
 	pub vec: Vec<Box<dyn AQLNode>>,
 }
 
+pub struct AQLFunctionCall {
+	pub name: String,
+	pub parameters: Vec<Box<dyn AQLNode>>,
+}
+
 pub struct AQLNotFilter(pub Box<dyn AQLNode>);
 
 pub struct AQLFilter {
@@ -304,6 +309,21 @@ impl AQLNode for AQLFilterInOperation {
 
 	fn valid(&self) -> bool {
 		self.vec.len() > 0
+	}
+}
+
+impl AQLNode for AQLFunctionCall {
+	fn describe(&self, id: u32) -> String {
+		format!(
+			"{}({})",
+			self.name,
+			self.parameters
+				.iter()
+				.map(|n| n.describe(id))
+				.collect::<Vec<String>>()
+				.join(",")
+				.as_str()
+		)
 	}
 }
 

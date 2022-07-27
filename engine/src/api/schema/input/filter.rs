@@ -96,10 +96,12 @@ where
 
 		for property in &info.operation_data.entity.properties {
 			let arg = match property.scalar_type {
-				DbScalarType::String | DbScalarType::Enum(_) => registry.arg::<Option<input::str::Filter<'a, S>>>(
-					property.name.as_str(),
-					&input::str::FilterData::from(info),
-				),
+				DbScalarType::String | DbScalarType::Enum(_) => {
+					registry.arg::<Option<input::str::Filter<'a, S>>>(
+						property.name.as_str(),
+						&input::str::FilterData::from(info),
+					)
+				}
 				DbScalarType::Float => registry.arg::<Option<input::float::Filter<'a, S>>>(
 					property.name.as_str(),
 					&input::float::FilterData::from(info),
@@ -304,7 +306,9 @@ where
 	S: ScalarValue,
 {
 	match scalar {
-		DbScalarType::String | DbScalarType::Enum(_) => Box::new(input::str::Filter::get_aql_filter_node(name, value)),
+		DbScalarType::String | DbScalarType::Enum(_) => {
+			Box::new(input::str::Filter::get_aql_filter_node(name, value))
+		}
 		DbScalarType::Float => Box::new(input::float::Filter::get_aql_filter_node(name, value)),
 		DbScalarType::Int => Box::new(input::int::Filter::get_aql_filter_node(name, value)),
 		DbScalarType::Boolean => Box::new(input::bool::Filter::get_aql_filter_node(name, value)),
