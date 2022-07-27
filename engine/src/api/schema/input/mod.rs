@@ -10,20 +10,32 @@ pub mod set;
 
 mod utils;
 
-pub fn get_list_nodes<S, M, R>(value: &InputValue<S>, mutator: M) -> Vec<Box<dyn AQLNode>>
+type MutatorFn<S, R> = fn(&InputValue<S>) -> Option<R>;
+
+pub fn get_node<S, R>(value: &InputValue<S>, mutator: MutatorFn<S, R>) -> Box<dyn AQLNode>
 where
 	S: ScalarValue,
-	M: Fn(&InputValue<S>) -> Option<R>,
+	R: Debug,
+{
+	match mutator(value) {
+		None => Box::new(AQLQueryRaw("null".to_string())),
+		Some(v) => Box::new(AQLQueryValue(format!("{:?}", v))),
+	}
+}
+
+pub fn get_list_nodes<S, R>(
+	value: &InputValue<S>,
+	mutator: MutatorFn<S, R>,
+) -> Vec<Box<dyn AQLNode>>
+where
+	S: ScalarValue,
 	R: Debug,
 {
 	let mut nodes: Vec<Box<dyn AQLNode>> = Vec::new();
 
 	if let Some(list) = value.to_list_value() {
 		for item in list {
-			nodes.push(match mutator(item) {
-				None => Box::new(AQLQueryRaw("null".to_string())),
-				Some(v) => Box::new(AQLQueryValue(format!("{:?}", v))),
-			})
+			nodes.push(get_node(item, mutator))
 		}
 	}
 
@@ -71,19 +83,12 @@ utils::define_type_filter!(str, String, "StringComparisonExp", to_str {
 		})))
 	};
 	* StringLike, "_like", String, (attr, val) -> {
-		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLQueryValue, AQLNode};
-		use crate::api::schema::input::{to_str};
+		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLNode};
+		use crate::api::schema::input::{to_str, get_node};
 
 		let parameters: Vec<Box<dyn AQLNode>> = vec![
 			Box::new(AQLQueryParameter(attr.to_string())),
-			match to_str(val) {
-				None => {
-					Box::new(AQLQueryRaw("null".to_string()))
-				}
-				Some(v) => {
-					Box::new(AQLQueryValue(format!("{:?}", v)))
-				}
-			}
+			get_node(val, to_str)
 		];
 
 		Box::new(AQLFunctionCall {
@@ -92,19 +97,12 @@ utils::define_type_filter!(str, String, "StringComparisonExp", to_str {
 		})
 	};
 	* StringNotLike, "_nlike", String, (attr, val) -> {
-		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLQueryValue, AQLNode, AQLNotFilter};
-		use crate::api::schema::input::{to_str};
+		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLNode, AQLNotFilter};
+		use crate::api::schema::input::{to_str, get_node};
 
 		let parameters: Vec<Box<dyn AQLNode>> = vec![
 			Box::new(AQLQueryParameter(attr.to_string())),
-			match to_str(val) {
-				None => {
-					Box::new(AQLQueryRaw("null".to_string()))
-				}
-				Some(v) => {
-					Box::new(AQLQueryValue(format!("{:?}", v)))
-				}
-			}
+			get_node(val, to_str)
 		];
 
 		Box::new(AQLNotFilter(Box::new(AQLFunctionCall {
@@ -113,19 +111,12 @@ utils::define_type_filter!(str, String, "StringComparisonExp", to_str {
 		})))
 	};
 	* StringILike, "_ilike", String, (attr, val) -> {
-		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLQueryValue, AQLNode};
-		use crate::api::schema::input::{to_str};
+		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLNode};
+		use crate::api::schema::input::{to_str, get_node};
 
 		let parameters: Vec<Box<dyn AQLNode>> = vec![
 			Box::new(AQLQueryParameter(attr.to_string())),
-			match to_str(val) {
-				None => {
-					Box::new(AQLQueryRaw("null".to_string()))
-				}
-				Some(v) => {
-					Box::new(AQLQueryValue(format!("{:?}", v)))
-				}
-			},
+			get_node(val, to_str),
 			Box::new(AQLQueryRaw("true".to_string()))
 		];
 
@@ -135,19 +126,12 @@ utils::define_type_filter!(str, String, "StringComparisonExp", to_str {
 		})
 	};
 	* StringNotILike, "_nilike", String, (attr, val) -> {
-		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLQueryValue, AQLNode, AQLNotFilter};
-		use crate::api::schema::input::{to_str};
+		use crate::lib::database::aql::{AQLFunctionCall, AQLQueryParameter, AQLQueryRaw, AQLNode, AQLNotFilter};
+		use crate::api::schema::input::{to_str, get_node};
 
 		let parameters: Vec<Box<dyn AQLNode>> = vec![
 			Box::new(AQLQueryParameter(attr.to_string())),
-			match to_str(val) {
-				None => {
-					Box::new(AQLQueryRaw("null".to_string()))
-				}
-				Some(v) => {
-					Box::new(AQLQueryValue(format!("{:?}", v)))
-				}
-			},
+			get_node(val, to_str),
 			Box::new(AQLQueryRaw("true".to_string()))
 		];
 
