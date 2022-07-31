@@ -230,3 +230,14 @@ where
 utils::define_type_filter!(bool, bool, "BoolComparisonExp", to_bool {
 	BoolEqual, "_eq", Equal;
 });
+
+pub fn to_object<S>(v: &InputValue<S>) -> Option<bool>
+where
+	S: ScalarValue,
+{
+	v.as_scalar().map(|i| i.as_boolean().unwrap())
+}
+
+utils::define_type_filter!(object, crate::api::schema::scalars::json::JsonScalar, "ObjectComparisonExp", to_object {
+	ObjectEqual, "_eq", Equal;
+});

@@ -1,11 +1,10 @@
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
 use juniper::{
-	Arguments, BoxFuture, ExecutionResult, InputValue, IntoFieldError, Object, Registry,
-	ScalarValue, Value,
+	Arguments, BoxFuture, ExecutionResult, InputValue, IntoFieldError, Registry, ScalarValue, Value,
 };
 use rust_arango::{AqlQuery, ClientError};
-use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
+use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -18,6 +17,7 @@ use crate::api::schema::operations::remove::Remove;
 use crate::api::schema::operations::remove_all::RemoveAll;
 use crate::api::schema::operations::update::Update;
 use crate::api::schema::operations::update_all::UpdateAll;
+use crate::api::schema::utils::convert_json_to_juniper_value;
 use crate::api::schema::{AsyncScalarValue, SchemaKind};
 use crate::lib::database::api::{DbEntity, DbRelationship};
 use crate::lib::database::aql::{
@@ -198,68 +198,6 @@ where
 			relationship.name
 		)
 	}
-}
-
-fn convert_number<S>(n: &JsonNumber) -> Value<S>
-where
-	S: AsyncScalarValue,
-{
-	return if n.is_i64() {
-		let v = n.as_i64().unwrap();
-
-		let res = if v > i32::MAX as i64 {
-			i32::MAX
-		} else if v < i32::MIN as i64 {
-			i32::MIN
-		} else {
-			v as i32
-		};
-
-		Value::scalar(res)
-	} else if n.is_u64() {
-		let v = n.as_u64().unwrap();
-
-		let res = if v > i32::MAX as u64 {
-			i32::MAX
-		} else if v < i32::MIN as u64 {
-			i32::MIN
-		} else {
-			v as i32
-		};
-
-		Value::scalar(res)
-	} else {
-		let v = n.as_f64().unwrap();
-
-		Value::scalar(v)
-	};
-}
-
-fn convert_json_to_juniper_value<S>(data: &JsonMap<String, JsonValue>) -> Value<S>
-where
-	S: AsyncScalarValue,
-{
-	let mut object = Object::<S>::with_capacity(data.len());
-
-	fn convert<S>(val: &JsonValue) -> Value<S>
-	where
-		S: AsyncScalarValue,
-	{
-		match val {
-			JsonValue::Null => Value::null(),
-			JsonValue::Bool(v) => Value::scalar(v.to_owned()),
-			JsonValue::Number(n) => convert_number(n),
-			JsonValue::String(s) => Value::scalar(s.to_owned()),
-			JsonValue::Array(a) => Value::list(a.iter().map(|i| convert(i)).collect()),
-			JsonValue::Object(ref o) => convert_json_to_juniper_value(o),
-		}
-	}
-
-	for (key, val) in data {
-		object.add_field(key, convert(val));
-	}
-
-	Value::Object(object)
 }
 
 fn get_filter_by_indices_attributes<S>(

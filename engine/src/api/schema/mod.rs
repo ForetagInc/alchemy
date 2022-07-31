@@ -3,6 +3,8 @@ pub mod errors;
 pub mod fields;
 pub mod input;
 pub mod operations;
+pub mod scalars;
+mod utils;
 
 use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use crate::api::schema::fields::SchemaFieldFactory;
