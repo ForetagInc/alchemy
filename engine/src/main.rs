@@ -16,6 +16,7 @@ use actix_web::{
 	web::{self, Data},
 	App, HttpServer,
 };
+use arangodb_events_rs::{Trigger, TriggerAuthentication};
 
 mod api;
 mod lib;
@@ -24,8 +25,8 @@ mod meta;
 use lib::database::generate_sdl;
 use lib::CONFIG;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+#[tokio::main]
+async fn main() {
 	pluralizer::initialize();
 
 	let app_port = CONFIG.app_port.parse::<u16>().unwrap_or(8080);
@@ -38,7 +39,7 @@ async fn main() -> std::io::Result<()> {
 	let meta_schema = Data::new(meta::graphql::schema());
 
 	// Actix server
-	HttpServer::new(move || {
+	let actix_handler = HttpServer::new(move || {
 		App::new()
 			.app_data(meta_schema.clone())
 			.app_data(api_schema.clone())
@@ -72,7 +73,21 @@ async fn main() -> std::io::Result<()> {
 					.route(web::get().to(meta::graphql::server::playground_meta_route)),
 			)
 	})
-	.bind(("0.0.0.0", app_port))?
-	.run()
-	.await
+	.bind(("0.0.0.0", app_port))
+	.expect("Error binding HTTP server address")
+	.run();
+
+	tokio::join!(actix_handler, async move {
+		let mut trigger = Trigger::new_auth(
+			CONFIG.db_host.as_str(),
+			CONFIG.db_name.as_str(),
+			TriggerAuthentication::new(CONFIG.db_user.as_str(), CONFIG.db_pass.as_str()),
+		);
+
+		trigger.init().await.unwrap();
+
+		loop {
+			trigger.listen().await.unwrap()
+		}
+	});
 }

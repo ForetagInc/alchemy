@@ -10,7 +10,7 @@ envy = '0.4'
 rust_arango = '0.1'
 serde = '1'
 serde_json = '1'
-tokio = { version = '1', features = ['sync'] }
+tokio = { version = '1', features = ['sync', 'macros'] }
 json = '0.12'
 jsonschema = '0.14'
 anyhow = '1'
