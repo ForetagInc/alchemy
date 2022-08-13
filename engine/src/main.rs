@@ -21,6 +21,7 @@ use arangodb_events_rs::{
 	Handler, HandlerContextFactory, HandlerEvent, Trigger, TriggerAuthentication,
 };
 use std::sync::{Arc, Mutex};
+use tokio::runtime::Runtime;
 
 mod api;
 mod lib;
@@ -37,6 +38,13 @@ impl Handler for ApiListener {
 
 	fn call(ctx: &Self::Context, doc: &DocumentOperation) {
 		println!("Schema update requested");
+
+		let mut schema = ctx.lock().unwrap();
+
+		let map = Runtime::new().unwrap().block_on(generate_sdl());
+		let api_schema = api::schema::schema(map.clone());
+
+		*schema = api_schema;
 	}
 }
 
@@ -49,7 +57,7 @@ async fn main() {
 	println!("Starting Alchemy on port {:?}", app_port);
 
 	let map = generate_sdl().await;
-	let api_schema = Data::new(api::schema::schema(map.clone()));
+	let api_schema = Data::new(Mutex::new(api::schema::schema(map.clone())));
 
 	let meta_schema = Data::new(meta::graphql::schema());
 

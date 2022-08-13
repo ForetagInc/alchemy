@@ -14,7 +14,7 @@ use juniper::{
 	Arguments, BoxFuture, EmptySubscription, ExecutionResult, Executor, FromInputValue,
 	GraphQLType, GraphQLValue, GraphQLValueAsync, InputValue, Registry, RootNode, ScalarValue,
 };
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::lib::database::api::*;
 
@@ -22,7 +22,7 @@ pub type Schema = RootNode<'static, SchemaType, SchemaType, EmptySubscription>;
 
 pub trait AsyncScalarValue = ScalarValue + Send + Sync;
 
-pub fn schema(map: DbMap) -> Mutex<Schema> {
+pub fn schema(map: DbMap) -> Schema {
 	let mut operation_registry = OperationRegistry::new();
 
 	for p in map.primitives {
@@ -54,14 +54,14 @@ pub fn schema(map: DbMap) -> Mutex<Schema> {
 		..query_info.clone()
 	};
 
-	Mutex::new(RootNode::new_with_info(
+	RootNode::new_with_info(
 		SchemaType,
 		SchemaType,
 		EmptySubscription::new(),
 		query_info,
 		mutation_info,
 		(),
-	))
+	)
 }
 
 #[derive(PartialEq, Clone)]
