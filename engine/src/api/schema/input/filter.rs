@@ -114,10 +114,6 @@ where
 					property.name.as_str(),
 					&input::bool::FilterData::from(info),
 				),
-				DbScalarType::Object => registry.arg::<Option<input::object::Filter<'a, S>>>(
-					property.name.as_str(),
-					&input::object::FilterData::from(info),
-				),
 				_ => registry.arg::<Option<i32>>(property.name.as_str(), &()),
 			};
 
@@ -316,7 +312,6 @@ where
 		DbScalarType::Float => Box::new(input::float::Filter::get_aql_filter_node(name, value)),
 		DbScalarType::Int => Box::new(input::int::Filter::get_aql_filter_node(name, value)),
 		DbScalarType::Boolean => Box::new(input::bool::Filter::get_aql_filter_node(name, value)),
-		DbScalarType::Object => Box::new(input::object::Filter::get_aql_filter_node(name, value)),
 		_ => todo!(),
 	}
 }
