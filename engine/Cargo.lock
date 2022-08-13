@@ -314,6 +314,7 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "anyhow",
+ "arangodb_events_rs",
  "async-recursion",
  "async_once",
  "convert_case 0.5.0",
@@ -363,6 +364,20 @@ name = "anyhow"
 version = "1.0.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4361135be9122e0870de935d7c439aef945b9f9ddd4199a553b5270b49c82a27"
+
+[[package]]
+name = "arangodb_events_rs"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1171937d672bcee0e5d32190b93d53c37ca84cfcc8c699c6cecad0985a050e9"
+dependencies = [
+ "base64",
+ "futures-util",
+ "hyper",
+ "serde",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "ascii"
@@ -2320,7 +2335,19 @@ dependencies = [
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
+ "tokio-macros",
  "winapi",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9724f9a975fb987ef7a3cd9be0350edcbe130698af5b8f7a631e23d42d052484"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
