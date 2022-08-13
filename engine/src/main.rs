@@ -16,14 +16,29 @@ use actix_web::{
 	web::{self, Data},
 	App, HttpServer,
 };
-use arangodb_events_rs::{Trigger, TriggerAuthentication};
+use arangodb_events_rs::api::DocumentOperation;
+use arangodb_events_rs::{
+	Handler, HandlerContextFactory, HandlerEvent, Trigger, TriggerAuthentication,
+};
+use std::sync::{Arc, Mutex};
 
 mod api;
 mod lib;
 mod meta;
 
+use crate::api::schema::Schema;
 use lib::database::generate_sdl;
 use lib::CONFIG;
+
+pub struct ApiListener;
+
+impl Handler for ApiListener {
+	type Context = Arc<Mutex<Schema>>;
+
+	fn call(ctx: &Self::Context, doc: &DocumentOperation) {
+		println!("Schema update requested");
+	}
+}
 
 #[tokio::main]
 async fn main() {
@@ -38,11 +53,13 @@ async fn main() {
 
 	let meta_schema = Data::new(meta::graphql::schema());
 
+	let cloned_api_schema = api_schema.clone();
+
 	// Actix server
 	let actix_handler = HttpServer::new(move || {
 		App::new()
 			.app_data(meta_schema.clone())
-			.app_data(api_schema.clone())
+			.app_data(cloned_api_schema.clone())
 			.wrap(
 				Cors::default()
 					.allow_any_origin()
@@ -83,6 +100,10 @@ async fn main() {
 			CONFIG.db_name.as_str(),
 			TriggerAuthentication::new(CONFIG.db_user.as_str(), CONFIG.db_pass.as_str()),
 		);
+
+		let context_data = HandlerContextFactory::from(api_schema.into_inner());
+
+		trigger.subscribe::<ApiListener>(HandlerEvent::InsertOrReplace, context_data);
 
 		trigger.init().await.unwrap();
 
