@@ -10,6 +10,7 @@ extern crate derivative;
 extern crate juniper_codegen;
 
 use actix_cors::Cors;
+use actix_web::dev::Server;
 use actix_web::{
 	http::header,
 	middleware,
@@ -21,34 +22,15 @@ use arangodb_events_rs::{
 	AsyncHandlerOutput, Handler, HandlerContextFactory, HandlerEvent, Trigger,
 	TriggerAuthentication,
 };
+
 use std::sync::{Arc, Mutex};
 
 mod api;
 mod lib;
 mod meta;
 
-use crate::api::schema::Schema;
 use lib::database::generate_sdl;
 use lib::CONFIG;
-
-pub struct ApiListener;
-
-impl Handler for ApiListener {
-	type Context = Arc<Mutex<Schema>>;
-
-	fn call<'a>(ctx: &'a Self::Context, _: &'a DocumentOperation) -> AsyncHandlerOutput<'a> {
-		Box::pin(async move {
-			println!("Schema update requested");
-
-			let mut schema = ctx.lock().unwrap();
-
-			let map = generate_sdl().await;
-			let api_schema = api::schema::schema(map.clone());
-
-			*schema = api_schema;
-		})
-	}
-}
 
 #[tokio::main]
 async fn main() {
@@ -61,15 +43,27 @@ async fn main() {
 	let map = generate_sdl().await;
 	let api_schema = Data::new(Mutex::new(api::schema::schema(map.clone())));
 
-	let meta_schema = Data::new(meta::graphql::schema());
+	let (http, _) = tokio::join!(
+		get_http_server(
+			app_port,
+			api_schema.clone(),
+			Data::new(meta::graphql::schema())
+		),
+		run_arangodb_listener(api_schema)
+	);
 
-	let cloned_api_schema = api_schema.clone();
+	http.expect("Error running HTTP Server");
+}
 
-	// Actix server
-	let actix_handler = HttpServer::new(move || {
+fn get_http_server(
+	port: u16,
+	api_schema: Data<Mutex<api::schema::Schema>>,
+	meta_schema: Data<meta::graphql::Schema>,
+) -> Server {
+	HttpServer::new(move || {
 		App::new()
 			.app_data(meta_schema.clone())
-			.app_data(cloned_api_schema.clone())
+			.app_data(api_schema.clone())
 			.wrap(
 				Cors::default()
 					.allow_any_origin()
@@ -100,25 +94,54 @@ async fn main() {
 					.route(web::get().to(meta::graphql::server::playground_meta_route)),
 			)
 	})
-	.bind(("0.0.0.0", app_port))
+	.bind(("0.0.0.0", port))
 	.expect("Error binding HTTP server address")
-	.run();
+	.run()
+}
 
-	tokio::join!(actix_handler, async move {
-		let mut trigger = Trigger::new_auth(
-			CONFIG.db_host.as_str(),
-			CONFIG.db_name.as_str(),
-			TriggerAuthentication::new(CONFIG.db_user.as_str(), CONFIG.db_pass.as_str()),
-		);
+pub struct ArangoDBListener;
 
-		let context_data = HandlerContextFactory::from(api_schema.into_inner());
+impl Handler for ArangoDBListener {
+	type Context = Arc<Mutex<api::schema::Schema>>;
 
-		trigger.subscribe::<ApiListener>(HandlerEvent::InsertOrReplace, context_data);
+	fn call<'a>(ctx: &'a Self::Context, _: &'a DocumentOperation) -> AsyncHandlerOutput<'a> {
+		Box::pin(async move {
+			println!("Schema update requested");
 
-		trigger.init().await.unwrap();
+			let mut schema = ctx.lock().unwrap();
 
-		loop {
-			trigger.listen().await.unwrap()
-		}
-	});
+			let map = generate_sdl().await;
+			let api_schema = api::schema::schema(map.clone());
+
+			*schema = api_schema;
+		})
+	}
+}
+
+async fn run_arangodb_listener(schema: Data<Mutex<api::schema::Schema>>) {
+	let mut trigger = Trigger::new_auth(
+		CONFIG.db_host.as_str(),
+		CONFIG.db_name.as_str(),
+		TriggerAuthentication::new(CONFIG.db_user.as_str(), CONFIG.db_pass.as_str()),
+	);
+
+	let context_data = HandlerContextFactory::from(schema.into_inner());
+
+	trigger.subscribe_to::<ArangoDBListener>(
+		HandlerEvent::InsertOrReplace,
+		"alchemy_collections",
+		context_data.clone(),
+	);
+
+	trigger.subscribe_to::<ArangoDBListener>(
+		HandlerEvent::Remove,
+		"alchemy_collections",
+		context_data,
+	);
+
+	trigger.init().await.unwrap();
+
+	loop {
+		trigger.listen().await.unwrap()
+	}
 }
