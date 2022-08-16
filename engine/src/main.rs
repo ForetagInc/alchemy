@@ -18,10 +18,10 @@ use actix_web::{
 };
 use arangodb_events_rs::api::DocumentOperation;
 use arangodb_events_rs::{
-	Handler, HandlerContextFactory, HandlerEvent, Trigger, TriggerAuthentication,
+	AsyncHandlerOutput, Handler, HandlerContextFactory, HandlerEvent, Trigger,
+	TriggerAuthentication,
 };
 use std::sync::{Arc, Mutex};
-use tokio::runtime::Runtime;
 
 mod api;
 mod lib;
@@ -36,15 +36,17 @@ pub struct ApiListener;
 impl Handler for ApiListener {
 	type Context = Arc<Mutex<Schema>>;
 
-	fn call(ctx: &Self::Context, doc: &DocumentOperation) {
-		println!("Schema update requested");
+	fn call<'a>(ctx: &'a Self::Context, _: &'a DocumentOperation) -> AsyncHandlerOutput<'a> {
+		Box::pin(async move {
+			println!("Schema update requested");
 
-		let mut schema = ctx.lock().unwrap();
+			let mut schema = ctx.lock().unwrap();
 
-		let map = Runtime::new().unwrap().block_on(generate_sdl());
-		let api_schema = api::schema::schema(map.clone());
+			let map = generate_sdl().await;
+			let api_schema = api::schema::schema(map.clone());
 
-		*schema = api_schema;
+			*schema = api_schema;
+		})
 	}
 }
 

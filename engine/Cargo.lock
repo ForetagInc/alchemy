@@ -366,9 +366,9 @@ checksum = "4361135be9122e0870de935d7c439aef945b9f9ddd4199a553b5270b49c82a27"
 
 [[package]]
 name = "arangodb_events_rs"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1171937d672bcee0e5d32190b93d53c37ca84cfcc8c699c6cecad0985a050e9"
+checksum = "329857d9e92ccc53a16369b6dfba9c47d64eccb4a2b020d3db579fafa8a006ea"
 dependencies = [
  "base64",
  "futures-util",
