@@ -2,7 +2,6 @@ use convert_case::Casing;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Formatter;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::lib::schema::{get_all_collections, get_all_edges};
@@ -25,16 +24,6 @@ impl DbMap {
 	}
 }
 
-impl std::fmt::Display for DbMap {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		for primitive in self.primitives.iter() {
-			write!(f, "{}", primitive)?
-		}
-
-		Ok(())
-	}
-}
-
 #[derive(Clone)]
 pub enum DbPrimitive {
 	Entity(Arc<DbEntity>),
@@ -45,14 +34,10 @@ impl std::fmt::Display for DbPrimitive {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
 			DbPrimitive::Entity(t) => {
-				let object = format!("type {} {{\n{}}}\n", t.name, get_type_body(&t.properties));
-
-				write!(f, "{}", object)
+				write!(f, "{}", t.name)
 			}
 			DbPrimitive::Enum(e) => {
-				let object = format!("enum {} {{\n{}\n}}\n", e.name, e.properties.join("\n"));
-
-				write!(f, "{}", object)
+				write!(f, "{}", e.name)
 			}
 		}
 	}
@@ -191,8 +176,6 @@ pub async fn generate_sdl() -> DbMap {
 	let mut sdl: DbMap = DbMap::new();
 	let mut collections_by_keys: HashMap<String, Arc<DbEntity>> = HashMap::new();
 
-	println!("----- SDL GENERATION -----");
-
 	let time = std::time::Instant::now();
 
 	for entry in collections.clone().iter() {
@@ -295,8 +278,20 @@ pub async fn generate_sdl() -> DbMap {
 		}
 	}
 
-	println!("----- SDL GENERATED in {:?} -----", time.elapsed());
-	println!("{}", sdl);
+	println!("SDL generated in {:?}", time.elapsed());
+	println!(
+		"Found [{}] entities and [{}] relationships",
+		sdl.primitives
+			.iter()
+			.map(|p| p.to_string())
+			.collect::<Vec<String>>()
+			.join(", "),
+		sdl.relationships
+			.iter()
+			.map(|p| p.name.as_str())
+			.collect::<Vec<&str>>()
+			.join(", "),
+	);
 
 	sdl
 }
@@ -321,54 +316,5 @@ fn build_json_type(json_data: &Value) -> JsonType {
 		"object" => JsonType::Object,
 		"string" => JsonType::String,
 		_ => JsonType::String, // This is an unreachable condition
-	}
-}
-
-fn get_type_body(props: &Vec<DbProperty>) -> String {
-	let mut body = String::new();
-
-	for prop in props {
-		body.push_str(
-			format!(
-				"\t{}: {}\n",
-				prop.name,
-				parse_graphql_prop_type(&prop.scalar_type, !prop.required, &prop.associated_type)
-			)
-			.as_str(),
-		)
-	}
-
-	body
-}
-
-fn parse_graphql_prop_type(
-	prop_type: &DbScalarType,
-	nullable: bool,
-	associated_type: &Option<String>,
-) -> String {
-	fn with_nullablity(prop_type: &str, nullable: bool) -> String {
-		format!("{}{}", prop_type, if nullable { "" } else { "!" })
-	}
-
-	match prop_type {
-		DbScalarType::String => with_nullablity("String", nullable),
-		DbScalarType::Object => with_nullablity("String", nullable),
-		DbScalarType::Float => with_nullablity("Float", nullable),
-		DbScalarType::Int => with_nullablity("Int", nullable),
-		DbScalarType::Boolean => with_nullablity("Boolean", nullable),
-		DbScalarType::Array(value) => {
-			let mut str_type = String::new();
-
-			str_type.push_str("[");
-			str_type
-				.push_str(parse_graphql_prop_type(value.deref(), true, associated_type).as_str());
-			str_type.push_str("]");
-
-			with_nullablity(str_type.as_str(), nullable)
-		}
-		DbScalarType::Enum(_) if associated_type.is_some() => {
-			with_nullablity(associated_type.clone().unwrap().as_str(), nullable)
-		}
-		_ => panic!("{}", ERR_UNDEFINED_TYPE),
 	}
 }

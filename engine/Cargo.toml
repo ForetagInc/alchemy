@@ -24,4 +24,4 @@ async_once = '0.2.6'
 sentry = '0.24'
 convert_case = '0.5.0'
 pluralizer = '0.3.2'
-arangodb_events_rs = { version = '0.1.5', features = ['async'] }
+arangodb_events_rs = { version = '0.1.6', features = ['async'] }
