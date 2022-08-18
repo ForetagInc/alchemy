@@ -1,0 +1,7 @@
+[package]
+name = 'console'
+version = '0.1.0'
+edition = '2021'
+
+[dependencies]
+yew = { git = 'https://github.com/yewstack/yew/', features = ['csr'] }
