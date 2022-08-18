@@ -128,17 +128,23 @@ fn build_field_from_relationship<'r, S>(
 where
 	S: AsyncScalarValue,
 {
-	let field = if relationship.relationship_type.returns_array() {
+	let returns_array = relationship.relationship_type.returns_array();
+
+	let field = if returns_array {
 		registry.field::<Vec<Entity>>(relationship.name.as_str(), info)
 	} else {
 		registry.field::<Entity>(relationship.name.as_str(), info)
 	};
 
-	field
-		.argument(
-			registry.arg::<Option<EntityFilter<S>>>("where", &EntityFilterData::new(info.data)),
-		)
-		.argument(registry.arg::<Option<i32>>("limit", &()))
+	if returns_array {
+		field
+			.argument(
+				registry.arg::<Option<EntityFilter<S>>>("where", &EntityFilterData::new(info.data)),
+			)
+			.argument(registry.arg::<Option<i32>>("limit", &()))
+	} else {
+		field
+	}
 }
 
 impl<'a, S> GraphQLType<S> for Entity<'a>
