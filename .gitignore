@@ -2,3 +2,9 @@
 plz-out
 .plzconfig.local
 .idea
+
+# Rust
+target
+
+# Environment
+.env
