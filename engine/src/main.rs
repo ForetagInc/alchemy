@@ -1,5 +1,4 @@
 #![feature(trait_alias)]
-#![feature(const_try)]
 
 extern crate juniper;
 
