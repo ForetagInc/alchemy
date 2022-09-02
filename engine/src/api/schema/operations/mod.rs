@@ -78,17 +78,6 @@ where
 		}
 	}
 
-	pub fn call_by_key<'b>(
-		&'b self,
-		key: &str,
-		arguments: &'b Arguments<S>,
-		query: AQLQuery,
-	) -> Option<FutureType<'b, S>> {
-		self.operations
-			.get(key)
-			.map(|o| (o.closure)(&o.data, arguments, query))
-	}
-
 	pub fn get_operations(&self, kind: SchemaKind) -> HashMap<&String, &OperationEntry<S>> {
 		self.operations
 			.iter()
