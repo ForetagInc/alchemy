@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
-use crate::lib::schema::{get_all_collections, get_all_edges};
+use crate::lib::schema::{get_all_collections, get_all_relationship_fields};
 
 const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
@@ -12,14 +12,14 @@ const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
 #[derive(Clone)]
 pub struct DbMap {
 	pub primitives: Vec<DbPrimitive>,
-	pub relationships: Vec<DbRelationship>,
+	pub relationship_fields: Vec<DbRelationshipField>,
 }
 
 impl DbMap {
 	pub fn new() -> Self {
 		Self {
 			primitives: Vec::new(),
-			relationships: Vec::new(),
+			relationship_fields: Vec::new(),
 		}
 	}
 }
@@ -108,7 +108,7 @@ impl From<&str> for DbRelationshipDirection {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct DbRelationship {
+pub struct DbRelationshipField {
 	pub name: String,
 	pub edge: String,
 	pub from: Arc<DbEntity>,
@@ -171,7 +171,7 @@ pub enum JsonType {
 
 pub async fn generate_sdl() -> DbMap {
 	let collections = get_all_collections().await;
-	let edges = get_all_edges().await;
+	let relationship_fields = get_all_relationship_fields().await;
 
 	let mut sdl: DbMap = DbMap::new();
 	let mut collections_by_keys: HashMap<String, Arc<DbEntity>> = HashMap::new();
@@ -255,7 +255,7 @@ pub async fn generate_sdl() -> DbMap {
 		sdl.primitives.push(DbPrimitive::Entity(entity.clone()))
 	}
 
-	for entry in edges.clone().iter() {
+	for entry in relationship_fields.clone().iter() {
 		let prop_name = entry["name"].as_str().unwrap();
 		let edge = entry["edge"].as_str().unwrap();
 		let from = entry["from"].as_str().unwrap();
@@ -267,7 +267,7 @@ pub async fn generate_sdl() -> DbMap {
 		if let (Some(from_entity), Some(to_entity)) =
 			(collections_by_keys.get(from), collections_by_keys.get(to))
 		{
-			sdl.relationships.push(DbRelationship {
+			sdl.relationship_fields.push(DbRelationshipField {
 				name: prop_name.to_string(),
 				edge: edge.to_string(),
 				from: from_entity.clone(),
@@ -286,10 +286,10 @@ pub async fn generate_sdl() -> DbMap {
 			.map(|p| p.to_string())
 			.collect::<Vec<String>>()
 			.join(", "),
-		sdl.relationships
+		sdl.relationship_fields
 			.iter()
-			.map(|p| p.name.as_str())
-			.collect::<Vec<&str>>()
+			.map(|p| format!("{}@{}", p.name.as_str(), p.from.collection_name.as_str()))
+			.collect::<Vec<String>>()
 			.join(", "),
 	);
 

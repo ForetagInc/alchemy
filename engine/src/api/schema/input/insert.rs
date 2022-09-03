@@ -9,20 +9,21 @@ use crate::api::schema::input::filter::{
 };
 use crate::api::schema::operations::{OperationData, OperationRegistry};
 use crate::api::schema::{build_argument_from_property, input_value_to_string, AsyncScalarValue};
-use crate::lib::database::api::DbRelationship;
+use crate::lib::database::api::DbRelationshipField;
 
-fn build_insert_arg_from_relationship<'r, S>(
+fn build_insert_arg_from_relationship_field<'r, S>(
 	registry: &mut Registry<'r, S>,
-	relationship: &DbRelationship,
+	relationship_field: &DbRelationshipField,
 	info: &EntityRelationshipInsertData<S>,
 ) -> Argument<'r, S>
 where
 	S: AsyncScalarValue,
 {
-	if relationship.relationship_type.returns_array() {
-		registry.arg::<Option<Vec<EntityRelationshipInsert>>>(relationship.name.as_str(), info)
+	if relationship_field.relationship_type.returns_array() {
+		registry
+			.arg::<Option<Vec<EntityRelationshipInsert>>>(relationship_field.name.as_str(), info)
 	} else {
-		registry.arg::<Option<EntityRelationshipInsert>>(relationship.name.as_str(), info)
+		registry.arg::<Option<EntityRelationshipInsert>>(relationship_field.name.as_str(), info)
 	}
 }
 
@@ -50,7 +51,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 	pub registry: &'a OperationRegistry<S>,
 }
 
@@ -58,7 +59,7 @@ impl<'a, S> EntityInsertData<'a, S>
 where
 	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+	pub fn new(data: &'a OperationData, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}Insert", data.entity.name.as_str()),
 			data,
@@ -88,7 +89,7 @@ where
 
 		args.push(attributes);
 
-		if !info.data.relationships.is_empty() {
+		if !info.data.relationship_fields.is_empty() {
 			let relationships = registry.arg::<Option<EntityRelationshipsInsert>>(
 				"relationships",
 				&EntityRelationshipsInsertData::new(info.data, info.registry),
@@ -179,7 +180,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 	pub registry: &'a OperationRegistry<S>,
 }
 
@@ -187,7 +188,7 @@ impl<'a, S> EntityAttributesInsertData<'a, S>
 where
 	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+	pub fn new(data: &'a OperationData, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}AttributesInsert", data.entity.name.as_str()),
 			data,
@@ -267,7 +268,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 	pub registry: &'a OperationRegistry<S>,
 }
 
@@ -275,7 +276,7 @@ impl<'a, S> EntityRelationshipsInsertData<'a, S>
 where
 	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+	pub fn new(data: &'a OperationData, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}RelationshipsInsert", data.entity.name.as_str()),
 			data,
@@ -298,7 +299,7 @@ where
 	{
 		let mut args = Vec::new();
 
-		for relationship in &*info.data.relationships {
+		for relationship in &*info.data.relationship_fields {
 			let rel_data = &info
 				.registry
 				.get_operation_data(&relationship.to.name)
@@ -306,7 +307,7 @@ where
 
 			let rel_info = &EntityRelationshipInsertData::new(rel_data, &info.registry);
 
-			let arg = build_insert_arg_from_relationship(registry, relationship, rel_info);
+			let arg = build_insert_arg_from_relationship_field(registry, relationship, rel_info);
 
 			args.push(arg);
 		}
@@ -353,7 +354,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 	pub registry: &'a OperationRegistry<S>,
 }
 
@@ -361,7 +362,7 @@ impl<'a, S> EntityRelationshipInsertData<'a, S>
 where
 	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+	pub fn new(data: &'a OperationData, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}RelationshipInsert", data.entity.name.as_str()),
 			data,

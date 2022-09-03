@@ -10,19 +10,22 @@ use crate::api::schema::operations::{
 	OperationData, QueryReturnType,
 };
 use crate::api::schema::{input_value_to_string, AsyncScalarValue};
-use crate::lib::database::api::DbRelationship;
+use crate::lib::database::api::DbRelationshipField;
 use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryMethod};
 
-fn get_relationship_data(relationships: &Vec<DbRelationship>, name: String) -> (&str, &str, &str) {
+fn get_relationship_data(
+	relationship_fields: &Vec<DbRelationshipField>,
+	name: String,
+) -> (&str, &str, &str) {
 	let mut edge = "";
 	let mut from_collection = "";
 	let mut to_collection = "";
 
-	for relationship in relationships {
-		if relationship.name == name {
-			edge = &relationship.edge;
-			from_collection = &relationship.from.collection_name;
-			to_collection = &relationship.to.collection_name;
+	for field in relationship_fields {
+		if field.name == name {
+			edge = &field.edge;
+			from_collection = &field.from.collection_name;
+			to_collection = &field.to.collection_name;
 		}
 	}
 
@@ -32,7 +35,7 @@ fn get_relationship_data(relationships: &Vec<DbRelationship>, name: String) -> (
 async fn insert_relationships<S>(
 	relationships: Vec<EntityInsertRelationship<S>>,
 	key: &str,
-	data: &OperationData<S>,
+	data: &OperationData,
 ) where
 	S: AsyncScalarValue,
 {
@@ -48,7 +51,7 @@ async fn insert_relationships<S>(
 				query.limit = Some(1);
 
 				let (edge, from_collection, to_collection) =
-					get_relationship_data(&data.relationships, k);
+					get_relationship_data(&data.relationship_fields, k);
 
 				let mut insert_query = AQLQuery::new(0);
 
@@ -70,7 +73,7 @@ async fn insert_relationships<S>(
 			}
 			EntityInsertRelationship::New(k, new_attributes) => {
 				let (edge, from_collection, to_collection) =
-					get_relationship_data(&data.relationships, k);
+					get_relationship_data(&data.relationship_fields, k);
 
 				let mut create_instance_query = AQLQuery::new(0);
 

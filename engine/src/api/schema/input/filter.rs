@@ -18,19 +18,13 @@ where
 	fn get_schema_argument<'r, 'd>(registry: &mut Registry<'r, S>) -> Argument<'r, S>;
 }
 
-pub struct EntityFilterData<'a, S>
-where
-	S: ScalarValue,
-{
+pub struct EntityFilterData<'a> {
 	pub name: String,
-	pub operation_data: &'a OperationData<S>,
+	pub operation_data: &'a OperationData,
 }
 
-impl<'a, S> EntityFilterData<'a, S>
-where
-	S: ScalarValue,
-{
-	pub fn new(data: &'a OperationData<S>) -> Self {
+impl<'a> EntityFilterData<'a> {
+	pub fn new(data: &'a OperationData) -> Self {
 		Self {
 			name: format!(
 				"{}BoolExp",
@@ -67,7 +61,7 @@ where
 	S: ScalarValue,
 {
 	type Context = ();
-	type TypeInfo = EntityFilterData<'a, S>;
+	type TypeInfo = EntityFilterData<'a>;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)
@@ -191,7 +185,7 @@ where
 
 pub fn get_aql_filter_from_args<S>(
 	args: &Arguments<S>,
-	data: &OperationData<S>,
+	data: &OperationData,
 ) -> Option<Box<dyn AQLNode>>
 where
 	S: ScalarValue,
@@ -316,19 +310,13 @@ where
 	}
 }
 
-pub struct EntityIndicesFilterData<'a, S>
-where
-	S: ScalarValue,
-{
+pub struct EntityIndicesFilterData<'a> {
 	pub name: String,
-	pub operation_data: &'a OperationData<S>,
+	pub operation_data: &'a OperationData,
 }
 
-impl<'a, S> EntityIndicesFilterData<'a, S>
-where
-	S: ScalarValue,
-{
-	pub fn new(data: &'a OperationData<S>) -> Self {
+impl<'a> EntityIndicesFilterData<'a> {
+	pub fn new(data: &'a OperationData) -> Self {
 		Self {
 			name: format!(
 				"{}IndexFilter",
@@ -342,7 +330,7 @@ where
 #[derive(Debug)]
 pub struct EntityIndicesFilter<'a, S>
 where
-	S: ScalarValue + 'a,
+	S: ScalarValue,
 {
 	pub indices_arguments: HashMap<String, InputValue<S>>,
 
@@ -354,7 +342,7 @@ where
 	S: ScalarValue,
 {
 	type Context = ();
-	type TypeInfo = EntityIndicesFilterData<'a, S>;
+	type TypeInfo = EntityIndicesFilterData<'a>;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)

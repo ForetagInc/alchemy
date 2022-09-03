@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use juniper::meta::MetaType;
-use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry, ScalarValue};
+use juniper::{FromInputValue, GraphQLType, GraphQLValue, InputValue, Registry};
 
 use crate::api::schema::operations::OperationData;
 use crate::api::schema::{build_argument_from_property, input_value_to_string, AsyncScalarValue};
@@ -12,19 +12,13 @@ pub struct EntitySet<'a> {
 	_marker: PhantomData<&'a ()>,
 }
 
-pub struct EntitySetData<'a, S>
-where
-	S: ScalarValue,
-{
+pub struct EntitySetData<'a> {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 }
 
-impl<'a, S> EntitySetData<'a, S>
-where
-	S: ScalarValue,
-{
-	pub fn new(data: &'a OperationData<S>) -> Self {
+impl<'a> EntitySetData<'a> {
+	pub fn new(data: &'a OperationData) -> Self {
 		Self {
 			name: format!("{}Set", data.entity.name.as_str()),
 			data,
@@ -68,7 +62,7 @@ where
 	S: AsyncScalarValue,
 {
 	type Context = ();
-	type TypeInfo = EntitySetData<'a, S>;
+	type TypeInfo = EntitySetData<'a>;
 
 	fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 		<Self as GraphQLType<S>>::name(info)

@@ -30,7 +30,7 @@ pub fn schema(map: DbMap) -> Schema {
 			DbPrimitive::Entity(t) => {
 				let mut relationships = Vec::new();
 
-				for relationship in &map.relationships {
+				for relationship in &map.relationship_fields {
 					if relationship.from.name == t.name {
 						relationships.push(relationship.clone())
 					}
@@ -42,10 +42,10 @@ pub fn schema(map: DbMap) -> Schema {
 		}
 	}
 
-	let relationships = Arc::new(map.relationships.clone());
+	let relationship_fields = Arc::new(map.relationship_fields.clone());
 	let query_info = SchemaData {
 		operation_registry: Arc::new(operation_registry),
-		relationships,
+		relationship_fields,
 		kind: SchemaKind::Query,
 	};
 
@@ -77,7 +77,7 @@ where
 {
 	kind: SchemaKind,
 	operation_registry: Arc<OperationRegistry<S>>,
-	relationships: Arc<Vec<DbRelationship>>,
+	relationship_fields: Arc<Vec<DbRelationshipField>>,
 }
 
 pub struct SchemaType;
