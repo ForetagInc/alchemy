@@ -121,6 +121,10 @@ where
 	{
 		let k = T::get_operation_name(&data);
 
+		if self.operations.contains_key(&k) {
+			println!("warn: registering duplicated operation `{}`", &k)
+		}
+
 		self.operations.insert(
 			k.clone(),
 			OperationEntry {
