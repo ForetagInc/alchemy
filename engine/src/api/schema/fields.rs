@@ -9,7 +9,7 @@ use crate::api::schema::enums::{DbEnumInfo, GraphQLEnum};
 use crate::api::schema::input::filter::{get_aql_filter_from_args, EntityFilter, EntityFilterData};
 use crate::api::schema::operations::{OperationData, OperationEntry, OperationRegistry};
 use crate::api::schema::{AsyncScalarValue, SchemaData};
-use crate::lib::database::api::{DbProperty, DbRelationship, DbScalarType};
+use crate::lib::database::api::{DbProperty, DbRelationshipField, DbScalarType};
 use crate::lib::database::aql::{AQLProperty, AQLQuery, AQLQueryRelationship};
 
 pub struct SchemaFieldFactory;
@@ -120,20 +120,20 @@ where
 	}
 }
 
-fn build_field_from_relationship<'r, S>(
+fn build_relationship_field<'r, S>(
 	registry: &mut Registry<'r, S>,
-	relationship: &DbRelationship,
+	relationship_field: &DbRelationshipField,
 	info: &EntityData<S>,
 ) -> Field<'r, S>
 where
 	S: AsyncScalarValue,
 {
-	let returns_array = relationship.relationship_type.returns_array();
+	let returns_array = relationship_field.relationship_type.returns_array();
 
 	let field = if returns_array {
-		registry.field::<Vec<Entity>>(relationship.name.as_str(), info)
+		registry.field::<Vec<Entity>>(relationship_field.name.as_str(), info)
 	} else {
-		registry.field::<Entity>(relationship.name.as_str(), info)
+		registry.field::<Entity>(relationship_field.name.as_str(), info)
 	};
 
 	if returns_array {
@@ -167,7 +167,7 @@ where
 			fields.push(field);
 		}
 
-		for relationship in &*info.data.relationships {
+		for relationship in &*info.data.relationship_fields {
 			let rel_info = &EntityData {
 				data: &*info
 					.registry
@@ -176,7 +176,7 @@ where
 				registry: info.registry,
 			};
 
-			let field = build_field_from_relationship(registry, relationship, rel_info);
+			let field = build_relationship_field(registry, relationship, rel_info);
 
 			fields.push(field);
 		}

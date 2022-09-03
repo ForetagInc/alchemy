@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::api::schema::errors::{DatabaseError, NotFoundError};
 use crate::api::schema::utils::convert_json_to_juniper_value;
 use crate::api::schema::{AsyncScalarValue, SchemaKind};
-use crate::lib::database::api::{DbEntity, DbRelationship};
+use crate::lib::database::api::{DbEntity, DbRelationshipField};
 use crate::lib::database::aql::{
 	AQLFilterOperation, AQLLogicalFilter, AQLLogicalOperator, AQLNode, AQLOperation, AQLQuery,
 	AQLQueryBind, AQLQueryParameter,
@@ -83,10 +83,14 @@ where
 		self.operation_data.get(key).map(|e| e.clone())
 	}
 
-	pub fn register_entity(&mut self, entity: Arc<DbEntity>, relationships: Vec<DbRelationship>) {
+	pub fn register_entity(
+		&mut self,
+		entity: Arc<DbEntity>,
+		relationship_fields: Vec<DbRelationshipField>,
+	) {
 		let data = Arc::new(OperationData {
 			entity: entity.clone(),
-			relationships,
+			relationship_fields,
 		});
 
 		self.operation_data
@@ -130,7 +134,7 @@ where
 
 pub struct OperationData {
 	pub entity: Arc<DbEntity>,
-	pub relationships: Vec<DbRelationship>,
+	pub relationship_fields: Vec<DbRelationshipField>,
 }
 
 pub trait Operation<S>
@@ -159,7 +163,7 @@ where
 		operation_registry: &OperationRegistry<S>,
 	) -> Field<'r, S>;
 
-	fn get_relationship_edge_name(relationship: &DbRelationship) -> String {
+	fn get_relationship_edge_name(relationship: &DbRelationshipField) -> String {
 		format!(
 			"{}_{}",
 			pluralizer::pluralize(

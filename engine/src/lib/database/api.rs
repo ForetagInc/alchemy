@@ -12,14 +12,14 @@ const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
 #[derive(Clone)]
 pub struct DbMap {
 	pub primitives: Vec<DbPrimitive>,
-	pub relationships: Vec<DbRelationship>,
+	pub relationship_fields: Vec<DbRelationshipField>,
 }
 
 impl DbMap {
 	pub fn new() -> Self {
 		Self {
 			primitives: Vec::new(),
-			relationships: Vec::new(),
+			relationship_fields: Vec::new(),
 		}
 	}
 }
@@ -108,7 +108,7 @@ impl From<&str> for DbRelationshipDirection {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct DbRelationship {
+pub struct DbRelationshipField {
 	pub name: String,
 	pub edge: String,
 	pub from: Arc<DbEntity>,
@@ -267,7 +267,7 @@ pub async fn generate_sdl() -> DbMap {
 		if let (Some(from_entity), Some(to_entity)) =
 			(collections_by_keys.get(from), collections_by_keys.get(to))
 		{
-			sdl.relationships.push(DbRelationship {
+			sdl.relationship_fields.push(DbRelationshipField {
 				name: prop_name.to_string(),
 				edge: edge.to_string(),
 				from: from_entity.clone(),
@@ -286,7 +286,7 @@ pub async fn generate_sdl() -> DbMap {
 			.map(|p| p.to_string())
 			.collect::<Vec<String>>()
 			.join(", "),
-		sdl.relationships
+		sdl.relationship_fields
 			.iter()
 			.map(|p| format!("{}@{}", p.name.as_str(), p.from.collection_name.as_str()))
 			.collect::<Vec<String>>()
