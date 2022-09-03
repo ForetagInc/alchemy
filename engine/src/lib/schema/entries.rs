@@ -36,10 +36,10 @@ pub async fn get_all_collections() -> Vec<JsonValue> {
 }
 
 /// Get all of the entries in the database
-pub async fn get_all_edges() -> Vec<JsonValue> {
+pub async fn get_all_relationship_fields() -> Vec<JsonValue> {
 	let entries_query = AqlQuery::builder()
 		.query(
-			"FOR entry in alchemy_edges
+			"FOR entry in alchemy_relationship_fields
 				RETURN entry",
 		)
 		.build();

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
-use crate::lib::schema::{get_all_collections, get_all_edges};
+use crate::lib::schema::{get_all_collections, get_all_relationship_fields};
 
 const ERR_CHILD_NOT_DEFINED: &str = "ERROR: Child type not defined";
 const ERR_UNDEFINED_TYPE: &str = "ERROR: Undefined associated SDL type";
@@ -171,7 +171,7 @@ pub enum JsonType {
 
 pub async fn generate_sdl() -> DbMap {
 	let collections = get_all_collections().await;
-	let edges = get_all_edges().await;
+	let relationship_fields = get_all_relationship_fields().await;
 
 	let mut sdl: DbMap = DbMap::new();
 	let mut collections_by_keys: HashMap<String, Arc<DbEntity>> = HashMap::new();
@@ -255,7 +255,7 @@ pub async fn generate_sdl() -> DbMap {
 		sdl.primitives.push(DbPrimitive::Entity(entity.clone()))
 	}
 
-	for entry in edges.clone().iter() {
+	for entry in relationship_fields.clone().iter() {
 		let prop_name = entry["name"].as_str().unwrap();
 		let edge = entry["edge"].as_str().unwrap();
 		let from = entry["from"].as_str().unwrap();
