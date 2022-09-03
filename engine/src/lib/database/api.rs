@@ -288,8 +288,8 @@ pub async fn generate_sdl() -> DbMap {
 			.join(", "),
 		sdl.relationships
 			.iter()
-			.map(|p| p.name.as_str())
-			.collect::<Vec<&str>>()
+			.map(|p| format!("{}@{}", p.name.as_str(), p.from.collection_name.as_str()))
+			.collect::<Vec<String>>()
 			.join(", "),
 	);
 

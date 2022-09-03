@@ -50,7 +50,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 	pub registry: &'a OperationRegistry<S>,
 }
 
@@ -58,7 +58,7 @@ impl<'a, S> EntityInsertData<'a, S>
 where
 	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+	pub fn new(data: &'a OperationData, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}Insert", data.entity.name.as_str()),
 			data,
@@ -179,7 +179,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 	pub registry: &'a OperationRegistry<S>,
 }
 
@@ -187,7 +187,7 @@ impl<'a, S> EntityAttributesInsertData<'a, S>
 where
 	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+	pub fn new(data: &'a OperationData, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}AttributesInsert", data.entity.name.as_str()),
 			data,
@@ -267,7 +267,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 	pub registry: &'a OperationRegistry<S>,
 }
 
@@ -275,7 +275,7 @@ impl<'a, S> EntityRelationshipsInsertData<'a, S>
 where
 	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+	pub fn new(data: &'a OperationData, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}RelationshipsInsert", data.entity.name.as_str()),
 			data,
@@ -353,7 +353,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub name: String,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 	pub registry: &'a OperationRegistry<S>,
 }
 
@@ -361,7 +361,7 @@ impl<'a, S> EntityRelationshipInsertData<'a, S>
 where
 	S: AsyncScalarValue,
 {
-	pub fn new(data: &'a OperationData<S>, registry: &'a OperationRegistry<S>) -> Self {
+	pub fn new(data: &'a OperationData, registry: &'a OperationRegistry<S>) -> Self {
 		Self {
 			name: format!("{}RelationshipInsert", data.entity.name.as_str()),
 			data,

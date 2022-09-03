@@ -1,22 +1,12 @@
 use convert_case::Casing;
 use juniper::meta::{Argument, Field};
-use juniper::{
-	Arguments, BoxFuture, ExecutionResult, InputValue, IntoFieldError, Registry, ScalarValue, Value,
-};
+use juniper::{Arguments, BoxFuture, ExecutionResult, InputValue, IntoFieldError, Registry, Value};
 use rust_arango::{AqlQuery, ClientError};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::api::schema::errors::{DatabaseError, NotFoundError};
-use crate::api::schema::operations::create::Create;
-use crate::api::schema::operations::get::Get;
-use crate::api::schema::operations::get_all::GetAll;
-use crate::api::schema::operations::remove::Remove;
-use crate::api::schema::operations::remove_all::RemoveAll;
-use crate::api::schema::operations::update::Update;
-use crate::api::schema::operations::update_all::UpdateAll;
 use crate::api::schema::utils::convert_json_to_juniper_value;
 use crate::api::schema::{AsyncScalarValue, SchemaKind};
 use crate::lib::database::api::{DbEntity, DbRelationship};
@@ -42,7 +32,7 @@ pub struct OperationRegistry<S>
 where
 	S: AsyncScalarValue,
 {
-	operation_data: HashMap<String, Arc<OperationData<S>>>,
+	operation_data: HashMap<String, Arc<OperationData>>,
 	operations: HashMap<String, OperationEntry<S>>,
 }
 
@@ -50,20 +40,20 @@ pub struct OperationEntry<S>
 where
 	S: AsyncScalarValue,
 {
-	pub closure: for<'a> fn(&'a OperationData<S>, &'a Arguments<S>, AQLQuery) -> FutureType<'a, S>,
+	pub closure: for<'a> fn(&'a OperationData, &'a Arguments<S>, AQLQuery) -> FutureType<'a, S>,
 	pub arguments_closure: for<'a> fn(
 		&mut Registry<'a, S>,
-		data: &OperationData<S>,
+		data: &OperationData,
 		&OperationRegistry<S>,
 	) -> Vec<Argument<'a, S>>,
 	pub field_closure: for<'a> fn(
 		&mut Registry<'a, S>,
 		name: &str,
-		data: &OperationData<S>,
+		data: &OperationData,
 		&OperationRegistry<S>,
 	) -> Field<'a, S>,
 
-	pub data: Arc<OperationData<S>>,
+	pub data: Arc<OperationData>,
 	pub kind: SchemaKind,
 }
 
@@ -89,7 +79,7 @@ where
 		self.operations.get(key)
 	}
 
-	pub fn get_operation_data(&self, key: &str) -> Option<Arc<OperationData<S>>> {
+	pub fn get_operation_data(&self, key: &str) -> Option<Arc<OperationData>> {
 		self.operation_data.get(key).map(|e| e.clone())
 	}
 
@@ -97,25 +87,23 @@ where
 		let data = Arc::new(OperationData {
 			entity: entity.clone(),
 			relationships,
-
-			_phantom: Default::default(),
 		});
 
 		self.operation_data
 			.insert(entity.name.clone(), data.clone());
 
 		vec![
-			self.register::<Get>(data.clone(), SchemaKind::Query),
-			self.register::<GetAll>(data.clone(), SchemaKind::Query),
-			self.register::<Update>(data.clone(), SchemaKind::Mutation),
-			self.register::<UpdateAll>(data.clone(), SchemaKind::Mutation),
-			self.register::<Remove>(data.clone(), SchemaKind::Mutation),
-			self.register::<RemoveAll>(data.clone(), SchemaKind::Mutation),
-			self.register::<Create>(data.clone(), SchemaKind::Mutation),
+			self.register::<get::Get>(data.clone(), SchemaKind::Query),
+			self.register::<get_all::GetAll>(data.clone(), SchemaKind::Query),
+			self.register::<update::Update>(data.clone(), SchemaKind::Mutation),
+			self.register::<update_all::UpdateAll>(data.clone(), SchemaKind::Mutation),
+			self.register::<remove::Remove>(data.clone(), SchemaKind::Mutation),
+			self.register::<remove_all::RemoveAll>(data.clone(), SchemaKind::Mutation),
+			self.register::<create::Create>(data.clone(), SchemaKind::Mutation),
 		];
 	}
 
-	fn register<T: 'static>(&mut self, data: Arc<OperationData<S>>, kind: SchemaKind) -> String
+	fn register<T: 'static>(&mut self, data: Arc<OperationData>, kind: SchemaKind) -> String
 	where
 		T: Operation<S>,
 	{
@@ -140,14 +128,9 @@ where
 	}
 }
 
-pub struct OperationData<S>
-where
-	S: ScalarValue,
-{
+pub struct OperationData {
 	pub entity: Arc<DbEntity>,
 	pub relationships: Vec<DbRelationship>,
-
-	_phantom: PhantomData<S>,
 }
 
 pub trait Operation<S>
@@ -156,23 +139,23 @@ where
 	Self: Send + Sync,
 {
 	fn call<'b>(
-		data: &'b OperationData<S>,
+		data: &'b OperationData,
 		arguments: &'b Arguments<S>,
 		query: AQLQuery,
 	) -> FutureType<'b, S>;
 
-	fn get_operation_name(data: &OperationData<S>) -> String;
+	fn get_operation_name(data: &OperationData) -> String;
 
 	fn get_arguments<'r, 'd>(
 		registry: &mut Registry<'r, S>,
-		data: &'d OperationData<S>,
+		data: &'d OperationData,
 		operation_registry: &OperationRegistry<S>,
 	) -> Vec<Argument<'r, S>>;
 
 	fn build_field<'r>(
 		registry: &mut Registry<'r, S>,
 		name: &str,
-		data: &OperationData<S>,
+		data: &OperationData,
 		operation_registry: &OperationRegistry<S>,
 	) -> Field<'r, S>;
 

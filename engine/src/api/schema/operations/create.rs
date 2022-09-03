@@ -32,7 +32,7 @@ fn get_relationship_data(relationships: &Vec<DbRelationship>, name: String) -> (
 async fn insert_relationships<S>(
 	relationships: Vec<EntityInsertRelationship<S>>,
 	key: &str,
-	data: &OperationData<S>,
+	data: &OperationData,
 ) where
 	S: AsyncScalarValue,
 {

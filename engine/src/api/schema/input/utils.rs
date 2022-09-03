@@ -88,18 +88,14 @@ macro_rules! define_type_filter {
 		mod $name {
 			use crate::api::schema::input::filter::FilterOperation;
 
-			pub struct FilterData<'a, S>
-			where
-				S: ::juniper::ScalarValue,
+			pub struct FilterData<'a>
 			{
-				pub operation_data: &'a crate::api::schema::operations::OperationData<S>,
+				pub operation_data: &'a crate::api::schema::operations::OperationData,
 			}
 
-			impl<'a, S> FilterData<'a, S>
-			where
-				S: ::juniper::ScalarValue,
+			impl<'a> FilterData<'a>
 			{
-				pub fn from(data: &crate::api::schema::input::filter::EntityFilterData<'a, S>) -> Self {
+				pub fn from(data: &crate::api::schema::input::filter::EntityFilterData<'a>) -> Self {
 					Self {
 						operation_data: data.operation_data,
 					}
@@ -115,7 +111,7 @@ macro_rules! define_type_filter {
 				S: ::juniper::ScalarValue,
 			{
 				type Context = ();
-				type TypeInfo = FilterData<'a, S>;
+				type TypeInfo = FilterData<'a>;
 
 				fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
 					<Self as ::juniper::GraphQLType<S>>::name(info)

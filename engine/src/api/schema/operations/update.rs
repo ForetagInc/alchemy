@@ -59,7 +59,7 @@ crate::api::schema::operations::utils::define_operation!(
 			)
 		},
 		arguments(data, _registry) {
-			where EntityIndicesFilter<S> => &EntityIndicesFilterData::<S>::new(data)
+			where EntityIndicesFilter<S> => &EntityIndicesFilterData::new(data)
 			_set EntitySet => &EntitySetData::new(data)
 		},
 		return_type -> Entity

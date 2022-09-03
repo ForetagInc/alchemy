@@ -18,7 +18,7 @@ macro_rules! define_operation {
 			S: crate::api::schema::AsyncScalarValue,
 		{
 			fn call<'b>(
-				data: &'b crate::api::schema::operations::OperationData<S>,
+				data: &'b crate::api::schema::operations::OperationData,
 				arguments: &'b ::juniper::Arguments<S>,
 				query: crate::lib::database::aql::AQLQuery,
 			) -> crate::api::schema::operations::FutureType<'b, S> {
@@ -29,7 +29,7 @@ macro_rules! define_operation {
 				$call_body
 			}
 
-			fn get_operation_name(data: &crate::api::schema::operations::OperationData<S>) -> String {
+			fn get_operation_name(data: &crate::api::schema::operations::OperationData) -> String {
 				let $name_data = data;
 
 				$name_body
@@ -37,7 +37,7 @@ macro_rules! define_operation {
 
 			fn get_arguments<'r, 'd>(
 				registry: &mut ::juniper::Registry<'r, S>,
-				data: &'d crate::api::schema::operations::OperationData<S>,
+				data: &'d crate::api::schema::operations::OperationData,
 				operation_registry: &crate::api::schema::operations::OperationRegistry<S>,
 			) -> Vec<::juniper::meta::Argument<'r, S>> {
 				let $args_data = data;
@@ -53,7 +53,7 @@ macro_rules! define_operation {
 			fn build_field<'r>(
 				registry: &mut ::juniper::Registry<'r, S>,
 				name: &str,
-				data: &crate::api::schema::operations::OperationData<S>,
+				data: &crate::api::schema::operations::OperationData,
 				operation_registry: &crate::api::schema::operations::OperationRegistry<S>,
 			) -> ::juniper::meta::Field<'r, S> {
 				registry.field::<$ret_type>(

@@ -53,7 +53,7 @@ where
 	S: AsyncScalarValue,
 {
 	pub registry: &'a OperationRegistry<S>,
-	pub data: &'a OperationData<S>,
+	pub data: &'a OperationData,
 }
 
 pub struct Entity<'a> {
