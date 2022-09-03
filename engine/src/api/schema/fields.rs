@@ -252,8 +252,7 @@ where
 	S: AsyncScalarValue,
 {
 	if let Some(entry) = info.operation_registry.get_operation(field_name) {
-		let query =
-			get_query_from_graphql(selection_set, &entry.data.entity.name, info, None, executor);
+		let query = get_query_from_graphql(selection_set, &entry.data, info, None, executor);
 
 		(entry.closure)(&entry.data, arguments, query).await
 	} else {
@@ -263,7 +262,7 @@ where
 
 fn get_query_from_graphql<'a, S>(
 	selection_set: &'a [Selection<'a, S>],
-	entity_name: &'a str,
+	operation_data: &'a OperationData,
 	data: &'a SchemaData<S>,
 	query_id: Option<u32>,
 	executor: &'a Executor<'a, 'a, <SchemaFieldResolver<'a, S> as GraphQLValue<S>>::Context, S>,
@@ -272,10 +271,11 @@ where
 	S: AsyncScalarValue,
 {
 	let mut query = AQLQuery::new(query_id.unwrap_or(1));
+	let entity_name = operation_data.entity.name.as_ref();
 
 	let meta_type = executor
 		.schema()
-		.concrete_type_by_name(entity_name.as_ref())
+		.concrete_type_by_name(entity_name)
 		.expect("Type not found in schema");
 
 	for selection in selection_set {
@@ -290,9 +290,20 @@ where
 				let response_name = response_name.to_string();
 
 				if let Some(inner_selection_set) = &f.selection_set {
+					let inner_relationship = operation_data
+						.relationship_fields
+						.iter()
+						.find(|r| r.name == f.name.item)
+						.expect("Relationship not found");
+
+					let inner_data = data
+						.operation_registry
+						.get_operation_data(inner_relationship.to.name.as_str())
+						.expect("Operation data not found");
+
 					let mut inner_query = get_query_from_graphql(
 						inner_selection_set,
-						entity_name,
+						inner_data.as_ref(),
 						data,
 						Some(query.id + 1),
 						executor,
@@ -318,28 +329,17 @@ where
 						&meta_field.arguments,
 					);
 
-					let operation_data = data
-						.operation_registry
-						.get_operation_data(meta_field.field_type.innermost_name())
-						.unwrap();
-
 					inner_query.limit = args.get::<i32>("limit");
 					inner_query.filter = get_aql_filter_from_args(&args, &operation_data);
 
-					for relationship in &*data.relationships {
-						if relationship.name == response_name {
-							inner_query.relationship = Some(AQLQueryRelationship {
-								edge: relationship.edge.clone(),
-								variable_name: query.get_variable_name(),
-								direction: relationship.direction.clone(),
-								relationship_type: relationship.relationship_type.clone(),
-							});
+					inner_query.relationship = Some(AQLQueryRelationship {
+						edge: inner_relationship.edge.clone(),
+						variable_name: query.get_variable_name(),
+						direction: inner_relationship.direction.clone(),
+						relationship_type: inner_relationship.relationship_type.clone(),
+					});
 
-							query.relations.insert(response_name.clone(), inner_query);
-
-							break;
-						}
-					}
+					query.relations.insert(response_name.clone(), inner_query);
 				} else {
 					query.properties.push(AQLProperty {
 						name: response_name,
